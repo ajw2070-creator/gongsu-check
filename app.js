@@ -264,8 +264,15 @@
         ${record.memo ? `<div class="record-memo">${escapeHtml(record.memo)}</div>` : ""}
       </div>
       <div class="record-gongsu">${formatGongsu(record.gongsu)}</div>
+      ${opts.onDelete ? '<button type="button" class="record-delete-btn">삭제</button>' : ""}
     `;
     el.addEventListener("click", () => (opts.onClick ? opts.onClick(record) : openEditModal(record.id)));
+    if (opts.onDelete) {
+      el.querySelector(".record-delete-btn").addEventListener("click", (e) => {
+        e.stopPropagation();
+        opts.onDelete(record);
+      });
+    }
     return el;
   }
 
@@ -458,6 +465,14 @@
     records.forEach((r) => container.appendChild(createRecordItemEl(r, {
       showDate: false,
       onClick: (rec) => { closeDayModal(); openEditModal(rec.id); },
+      onDelete: (rec) => {
+        if (!confirm("이 공수 기록을 삭제할까요?")) return;
+        saveRecords(loadRecords().filter((x) => x.id !== rec.id));
+        toast("삭제했습니다");
+        renderDayModalList();
+        renderCalendar();
+        if (calendarState.selectedDate === dayModalState.date) renderDayRecordList();
+      },
     })));
   }
 
