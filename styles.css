@@ -455,6 +455,33 @@ input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 
 .modal h2 { margin: 0 0 16px; font-size: 16px; }
 
+.day-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.day-modal-header h2 { margin: 0; }
+
+.modal-close-btn {
+  border: none;
+  background: none;
+  font-size: 16px;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 4px 6px;
+  line-height: 1;
+}
+
+.day-modal-add-heading {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-dim);
+  margin: 18px 0 14px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
 .modal-actions {
   display: flex;
   align-items: center;

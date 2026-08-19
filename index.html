@@ -168,6 +168,41 @@
   </div>
 </div>
 
+<div id="day-modal" class="modal-overlay">
+  <div class="modal">
+    <div class="day-modal-header">
+      <h2 id="day-modal-heading">날짜</h2>
+      <button type="button" class="modal-close-btn" id="day-modal-close-btn">✕</button>
+    </div>
+
+    <div id="day-modal-list" class="record-list"></div>
+
+    <div class="day-modal-add-heading">공수 추가</div>
+
+    <div class="field">
+      <label>업체</label>
+      <div class="chip-row" id="day-modal-company-chip-row"></div>
+    </div>
+
+    <div class="field">
+      <label>공수</label>
+      <div class="gongsu-row">
+        <button type="button" class="step-btn" id="day-modal-gongsu-minus">−0.5</button>
+        <input type="number" id="day-modal-gongsu" step="0.5" min="0" value="1" inputmode="decimal" />
+        <button type="button" class="step-btn" id="day-modal-gongsu-plus">+0.5</button>
+      </div>
+      <div class="preset-row" id="day-modal-gongsu-presets"></div>
+    </div>
+
+    <div class="field">
+      <label>메모 <span class="optional">(선택)</span></label>
+      <input type="text" id="day-modal-memo" placeholder="예: 오전 반차, 특근 등" />
+    </div>
+
+    <button type="button" class="primary-btn" id="day-modal-add-btn">추가</button>
+  </div>
+</div>
+
 <div id="toast" class="toast"></div>
 
 <script src="app.js"></script>

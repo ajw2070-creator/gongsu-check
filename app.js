@@ -221,8 +221,8 @@
 
   // ---------- gongsu presets ----------
   const GONGSU_PRESETS = [0.5, 1, 1.5, 2, 2.5, 3];
-  function renderGongsuPresets() {
-    const container = document.getElementById("gongsu-presets");
+  function renderGongsuPresets(containerId, inputId) {
+    const container = document.getElementById(containerId);
     container.innerHTML = "";
     GONGSU_PRESETS.forEach((v) => {
       const btn = document.createElement("button");
@@ -230,25 +230,25 @@
       btn.className = "preset-chip";
       btn.textContent = formatGongsu(v);
       btn.addEventListener("click", () => {
-        document.getElementById("input-gongsu").value = v;
-        updateGongsuPresetHighlight();
+        document.getElementById(inputId).value = v;
+        updateGongsuPresetHighlight(containerId, inputId);
       });
       container.appendChild(btn);
     });
-    updateGongsuPresetHighlight();
+    updateGongsuPresetHighlight(containerId, inputId);
   }
-  function updateGongsuPresetHighlight() {
-    const val = parseFloat(document.getElementById("input-gongsu").value);
-    document.querySelectorAll("#gongsu-presets .preset-chip").forEach((btn) => {
+  function updateGongsuPresetHighlight(containerId, inputId) {
+    const val = parseFloat(document.getElementById(inputId).value);
+    document.querySelectorAll("#" + containerId + " .preset-chip").forEach((btn) => {
       btn.classList.toggle("selected", parseFloat(btn.textContent) === val);
     });
   }
-  function adjustGongsu(elId, delta) {
+  function adjustGongsu(elId, delta, presetContainerId) {
     const el = document.getElementById(elId);
     let v = (parseFloat(el.value) || 0) + delta;
     v = Math.max(0, Math.round(v * 100) / 100);
     el.value = v;
-    if (elId === "input-gongsu") updateGongsuPresetHighlight();
+    if (presetContainerId) updateGongsuPresetHighlight(presetContainerId, elId);
   }
 
   // ---------- record list rendering ----------
@@ -265,7 +265,7 @@
       </div>
       <div class="record-gongsu">${formatGongsu(record.gongsu)}</div>
     `;
-    el.addEventListener("click", () => openEditModal(record.id));
+    el.addEventListener("click", () => (opts.onClick ? opts.onClick(record) : openEditModal(record.id)));
     return el;
   }
 
@@ -405,6 +405,10 @@
         ${sum ? `<span class="cell-gongsu-badge">${formatGongsu(sum)}</span>` : ""}
       `;
       btn.addEventListener("click", () => selectDate(date));
+      btn.addEventListener("dblclick", (e) => {
+        e.preventDefault();
+        openDayModal(date);
+      });
       container.appendChild(btn);
     });
   }
@@ -429,6 +433,48 @@
     renderSelectedDateHeading();
     refreshInputCompanyChips();
     renderDayRecordList();
+  }
+
+  // ---------- day quick-edit modal (double-tap a calendar date) ----------
+  const dayModalState = { date: null, companyId: null };
+
+  function refreshDayModalCompanyChips() {
+    renderCompanyChips(document.getElementById("day-modal-company-chip-row"), dayModalState.companyId, (id) => {
+      dayModalState.companyId = id;
+      refreshDayModalCompanyChips();
+    });
+  }
+
+  function renderDayModalList() {
+    const records = loadRecords()
+      .filter((r) => r.date === dayModalState.date)
+      .sort((a, b) => b.createdAt - a.createdAt);
+    const container = document.getElementById("day-modal-list");
+    container.innerHTML = "";
+    if (records.length === 0) {
+      container.innerHTML = '<div class="record-empty">입력된 기록이 없습니다</div>';
+      return;
+    }
+    records.forEach((r) => container.appendChild(createRecordItemEl(r, {
+      showDate: false,
+      onClick: (rec) => { closeDayModal(); openEditModal(rec.id); },
+    })));
+  }
+
+  function openDayModal(dateStr) {
+    dayModalState.date = dateStr;
+    dayModalState.companyId = getSuggestedCompanyForDate(dateStr);
+    document.getElementById("day-modal-heading").textContent = formatDateHeading(dateStr);
+    document.getElementById("day-modal-gongsu").value = 1;
+    document.getElementById("day-modal-memo").value = "";
+    renderDayModalList();
+    refreshDayModalCompanyChips();
+    renderGongsuPresets("day-modal-gongsu-presets", "day-modal-gongsu");
+    document.getElementById("day-modal").classList.add("active");
+  }
+
+  function closeDayModal() {
+    document.getElementById("day-modal").classList.remove("active");
   }
 
   function renderMonth() {
@@ -527,7 +573,7 @@
 
   // ---------- init ----------
   function init() {
-    renderGongsuPresets();
+    renderGongsuPresets("gongsu-presets", "input-gongsu");
     inputState.companyId = getSuggestedCompanyForDate(calendarState.selectedDate);
 
     document.querySelectorAll(".nav-btn").forEach((b) => b.addEventListener("click", () => switchView(b.dataset.view)));
@@ -535,9 +581,9 @@
     document.getElementById("cal-prev").addEventListener("click", () => { calendarState.ym = shiftMonth(calendarState.ym, -1); renderCalendar(); });
     document.getElementById("cal-next").addEventListener("click", () => { calendarState.ym = shiftMonth(calendarState.ym, 1); renderCalendar(); });
 
-    document.getElementById("gongsu-minus").addEventListener("click", () => adjustGongsu("input-gongsu", -0.5));
-    document.getElementById("gongsu-plus").addEventListener("click", () => adjustGongsu("input-gongsu", 0.5));
-    document.getElementById("input-gongsu").addEventListener("input", updateGongsuPresetHighlight);
+    document.getElementById("gongsu-minus").addEventListener("click", () => adjustGongsu("input-gongsu", -0.5, "gongsu-presets"));
+    document.getElementById("gongsu-plus").addEventListener("click", () => adjustGongsu("input-gongsu", 0.5, "gongsu-presets"));
+    document.getElementById("input-gongsu").addEventListener("input", () => updateGongsuPresetHighlight("gongsu-presets", "input-gongsu"));
 
     document.getElementById("save-btn").addEventListener("click", () => {
       const date = calendarState.selectedDate;
@@ -598,6 +644,28 @@
       closeEditModal();
       toast("삭제했습니다");
       renderCurrentView();
+    });
+
+    document.getElementById("day-modal-close-btn").addEventListener("click", closeDayModal);
+    document.getElementById("day-modal").addEventListener("click", (e) => {
+      if (e.target.id === "day-modal") closeDayModal();
+    });
+    document.getElementById("day-modal-gongsu-minus").addEventListener("click", () => adjustGongsu("day-modal-gongsu", -0.5, "day-modal-gongsu-presets"));
+    document.getElementById("day-modal-gongsu-plus").addEventListener("click", () => adjustGongsu("day-modal-gongsu", 0.5, "day-modal-gongsu-presets"));
+    document.getElementById("day-modal-gongsu").addEventListener("input", () => updateGongsuPresetHighlight("day-modal-gongsu-presets", "day-modal-gongsu"));
+    document.getElementById("day-modal-add-btn").addEventListener("click", () => {
+      const gongsu = parseFloat(document.getElementById("day-modal-gongsu").value);
+      const memo = document.getElementById("day-modal-memo").value.trim();
+      if (!dayModalState.companyId) return toast("업체를 선택하세요");
+      if (!gongsu || gongsu <= 0) return toast("공수를 입력하세요");
+      const records = loadRecords();
+      records.push({ id: uid(), date: dayModalState.date, companyId: dayModalState.companyId, gongsu, memo, createdAt: Date.now() });
+      saveRecords(records);
+      document.getElementById("day-modal-memo").value = "";
+      toast("저장했습니다");
+      renderDayModalList();
+      renderCalendar();
+      if (calendarState.selectedDate === dayModalState.date) renderDayRecordList();
     });
 
     switchView("input");
