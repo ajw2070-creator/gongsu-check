@@ -3,6 +3,8 @@
 
   const STORAGE_COMPANIES = "gongsu_companies_v1";
   const STORAGE_RECORDS = "gongsu_records_v1";
+  const STORAGE_SETTINGS = "gongsu_settings_v1";
+  const DEFAULT_SETTINGS = { theme: "light", gongsuStep: 0.5 };
   const PALETTE = ["#2563eb", "#dc2626", "#16a34a", "#d97706", "#7c3aed", "#0891b2", "#db2777", "#65a30d", "#ea580c", "#4f46e5"];
   const WEEKDAY = ["일", "월", "화", "수", "목", "금", "토"];
 
@@ -104,6 +106,19 @@
   }
   function saveRecords(list) { localStorage.setItem(STORAGE_RECORDS, JSON.stringify(list)); }
   function getCompanyById(id) { return loadCompanies().find((c) => c.id === id); }
+
+  function loadSettings() {
+    try { return Object.assign({}, DEFAULT_SETTINGS, JSON.parse(localStorage.getItem(STORAGE_SETTINGS)) || {}); }
+    catch (e) { return Object.assign({}, DEFAULT_SETTINGS); }
+  }
+  function saveSettings(s) { localStorage.setItem(STORAGE_SETTINGS, JSON.stringify(s)); }
+  function getGongsuStep() { return loadSettings().gongsuStep; }
+  function getGongsuPresetValues() {
+    return getGongsuStep() === 1 ? [1, 2, 3, 4, 5, 6] : [0.5, 1, 1.5, 2, 2.5, 3];
+  }
+  function applyTheme() {
+    document.documentElement.setAttribute("data-theme", loadSettings().theme);
+  }
 
   function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
 
@@ -249,11 +264,10 @@
   }
 
   // ---------- gongsu presets ----------
-  const GONGSU_PRESETS = [0.5, 1, 1.5, 2, 2.5, 3];
   function renderGongsuPresets(containerId, inputId) {
     const container = document.getElementById(containerId);
     container.innerHTML = "";
-    GONGSU_PRESETS.forEach((v) => {
+    getGongsuPresetValues().forEach((v) => {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "preset-chip";
@@ -278,6 +292,11 @@
     v = Math.max(0, Math.round(v * 100) / 100);
     el.value = v;
     if (presetContainerId) updateGongsuPresetHighlight(presetContainerId, elId);
+  }
+  function refreshGongsuStepLabels() {
+    const step = formatGongsu(getGongsuStep());
+    document.querySelectorAll(".gongsu-step-minus").forEach((b) => { b.textContent = "−" + step; });
+    document.querySelectorAll(".gongsu-step-plus").forEach((b) => { b.textContent = "+" + step; });
   }
 
   // ---------- record list rendering ----------
@@ -644,6 +663,39 @@
     });
   }
 
+  function renderSettingsTab() {
+    const settings = loadSettings();
+    document.querySelectorAll(".theme-option").forEach((btn) => {
+      btn.classList.toggle("selected", btn.dataset.theme === settings.theme);
+    });
+    document.querySelectorAll(".gongsu-step-option").forEach((btn) => {
+      btn.classList.toggle("selected", parseFloat(btn.dataset.step) === settings.gongsuStep);
+    });
+
+    const container = document.getElementById("settings-company-colors");
+    container.innerHTML = "";
+    const companies = loadCompanies();
+    if (companies.length === 0) {
+      container.innerHTML = '<div class="record-empty">등록된 업체가 없습니다</div>';
+      return;
+    }
+    companies.forEach((c) => {
+      const el = document.createElement("div");
+      el.className = "manage-item";
+      el.innerHTML = `
+        <span class="record-dot" style="background:${c.color}"></span>
+        <span class="manage-name">${escapeHtml(c.name)}</span>
+        <input type="color" class="company-color-input" value="${c.color}" />
+      `;
+      el.querySelector(".company-color-input").addEventListener("input", (e) => {
+        c.color = e.target.value;
+        saveCompanies(companies);
+        renderSettingsTab();
+      });
+      container.appendChild(el);
+    });
+  }
+
   function renderCurrentView() {
     if (currentView === "input") {
       renderCalendar();
@@ -654,6 +706,7 @@
     else if (currentView === "month") renderMonth();
     else if (currentView === "stats") renderStats();
     else if (currentView === "companies") renderCompaniesTab();
+    else if (currentView === "settings") renderSettingsTab();
   }
 
   function switchView(view) {
@@ -661,7 +714,7 @@
     document.querySelectorAll(".view").forEach((v) => v.classList.remove("active"));
     document.getElementById("view-" + view).classList.add("active");
     document.querySelectorAll(".nav-btn").forEach((b) => b.classList.toggle("active", b.dataset.view === view));
-    const titles = { input: "공수체크", month: "월별현황", stats: "전체통계", companies: "업체관리" };
+    const titles = { input: "공수체크", month: "월별현황", stats: "전체통계", companies: "업체관리", settings: "설정" };
     document.getElementById("header-title").textContent = titles[view];
     renderCurrentView();
   }
@@ -685,7 +738,9 @@
 
   // ---------- init ----------
   function init() {
+    applyTheme();
     renderGongsuPresets("gongsu-presets", "input-gongsu");
+    refreshGongsuStepLabels();
     inputState.companyId = getSuggestedCompanyForDate(calendarState.selectedDate);
 
     document.addEventListener("touchstart", (e) => {
@@ -697,11 +752,42 @@
 
     document.querySelectorAll(".nav-btn").forEach((b) => b.addEventListener("click", () => switchView(b.dataset.view)));
 
+    document.getElementById("menu-btn").addEventListener("click", () => {
+      document.getElementById("side-menu-overlay").classList.add("active");
+    });
+    document.getElementById("side-menu-overlay").addEventListener("click", (e) => {
+      if (e.target.id === "side-menu-overlay") document.getElementById("side-menu-overlay").classList.remove("active");
+    });
+    document.getElementById("menu-settings-btn").addEventListener("click", () => {
+      document.getElementById("side-menu-overlay").classList.remove("active");
+      switchView("settings");
+    });
+
+    document.querySelectorAll(".theme-option").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const s = loadSettings();
+        s.theme = btn.dataset.theme;
+        saveSettings(s);
+        applyTheme();
+        renderSettingsTab();
+      });
+    });
+    document.querySelectorAll(".gongsu-step-option").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const s = loadSettings();
+        s.gongsuStep = parseFloat(btn.dataset.step);
+        saveSettings(s);
+        refreshGongsuStepLabels();
+        renderGongsuPresets("gongsu-presets", "input-gongsu");
+        renderSettingsTab();
+      });
+    });
+
     document.getElementById("cal-prev").addEventListener("click", () => { calendarState.ym = shiftMonth(calendarState.ym, -1); renderCalendar(); });
     document.getElementById("cal-next").addEventListener("click", () => { calendarState.ym = shiftMonth(calendarState.ym, 1); renderCalendar(); });
 
-    document.getElementById("gongsu-minus").addEventListener("click", () => adjustGongsu("input-gongsu", -0.5, "gongsu-presets"));
-    document.getElementById("gongsu-plus").addEventListener("click", () => adjustGongsu("input-gongsu", 0.5, "gongsu-presets"));
+    document.getElementById("gongsu-minus").addEventListener("click", () => adjustGongsu("input-gongsu", -getGongsuStep(), "gongsu-presets"));
+    document.getElementById("gongsu-plus").addEventListener("click", () => adjustGongsu("input-gongsu", getGongsuStep(), "gongsu-presets"));
     document.getElementById("input-gongsu").addEventListener("input", () => updateGongsuPresetHighlight("gongsu-presets", "input-gongsu"));
 
     document.getElementById("save-btn").addEventListener("click", () => {
@@ -729,8 +815,8 @@
       renderCompaniesTab();
     });
 
-    document.getElementById("edit-gongsu-minus").addEventListener("click", () => adjustGongsu("edit-gongsu", -0.5));
-    document.getElementById("edit-gongsu-plus").addEventListener("click", () => adjustGongsu("edit-gongsu", 0.5));
+    document.getElementById("edit-gongsu-minus").addEventListener("click", () => adjustGongsu("edit-gongsu", -getGongsuStep()));
+    document.getElementById("edit-gongsu-plus").addEventListener("click", () => adjustGongsu("edit-gongsu", getGongsuStep()));
     document.getElementById("edit-cancel-btn").addEventListener("click", closeEditModal);
     document.getElementById("edit-modal").addEventListener("click", (e) => {
       if (e.target.id === "edit-modal") closeEditModal();
@@ -760,8 +846,8 @@
     document.getElementById("day-modal").addEventListener("click", (e) => {
       if (e.target.id === "day-modal") closeDayModal();
     });
-    document.getElementById("day-modal-gongsu-minus").addEventListener("click", () => adjustGongsu("day-modal-gongsu", -0.5, "day-modal-gongsu-presets"));
-    document.getElementById("day-modal-gongsu-plus").addEventListener("click", () => adjustGongsu("day-modal-gongsu", 0.5, "day-modal-gongsu-presets"));
+    document.getElementById("day-modal-gongsu-minus").addEventListener("click", () => adjustGongsu("day-modal-gongsu", -getGongsuStep(), "day-modal-gongsu-presets"));
+    document.getElementById("day-modal-gongsu-plus").addEventListener("click", () => adjustGongsu("day-modal-gongsu", getGongsuStep(), "day-modal-gongsu-presets"));
     document.getElementById("day-modal-gongsu").addEventListener("input", () => updateGongsuPresetHighlight("day-modal-gongsu-presets", "day-modal-gongsu"));
     document.getElementById("day-modal-add-btn").addEventListener("click", () => {
       const gongsu = parseFloat(document.getElementById("day-modal-gongsu").value);
