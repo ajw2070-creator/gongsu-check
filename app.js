@@ -629,7 +629,10 @@
     }
     records.forEach((r) => container.appendChild(createRecordItemEl(r, {
       showDate: false,
-      onClick: (rec) => { closeDayModal(); openEditModal(rec.id); },
+      onClick: (rec) => {
+        document.getElementById("day-modal").classList.remove("active");
+        openEditModal(rec.id, { replace: true });
+      },
       onDelete: (rec) => {
         if (!confirm("이 공수 기록을 삭제할까요?")) return;
         saveRecords(loadRecords().filter((x) => x.id !== rec.id));
@@ -651,10 +654,12 @@
     refreshDayModalCompanyChips();
     renderGongsuPresets("day-modal-gongsu-presets", "day-modal-gongsu");
     document.getElementById("day-modal").classList.add("active");
+    pushModalState(() => closeDayModal(true));
   }
 
-  function closeDayModal() {
+  function closeDayModal(fromPopstate) {
     document.getElementById("day-modal").classList.remove("active");
+    if (!fromPopstate) popModalState();
   }
 
   function renderMonth() {
@@ -768,6 +773,30 @@
     renderCurrentView();
   }
 
+  // ---------- back-button-aware modal stack ----------
+  // Each open modal pushes a history entry so the hardware/gesture back button closes
+  // the modal first instead of leaving the app. popstate (from an actual back press)
+  // pops the top entry and closes it WITHOUT calling history.back() again (the browser
+  // already did that navigation); a normal UI close (button/outside tap) does the
+  // opposite: pop our bookkeeping first, then call history.back() to consume the entry.
+  const modalStack = [];
+
+  function pushModalState(closeFn) {
+    modalStack.push(closeFn);
+    history.pushState({ gongsuModal: true }, "");
+  }
+  function replaceModalState(closeFn) {
+    if (modalStack.length > 0) modalStack[modalStack.length - 1] = closeFn;
+    else modalStack.push(closeFn);
+    history.replaceState({ gongsuModal: true }, "");
+  }
+  function popModalState() {
+    if (modalStack.length > 0) {
+      modalStack.pop();
+      history.back();
+    }
+  }
+
   // ---------- edge-swipe tab switching ----------
   const TAB_ORDER = ["input", "month", "stats", "companies"];
   function switchToAdjacentTab(direction) {
@@ -778,7 +807,7 @@
   }
 
   // ---------- edit modal ----------
-  function openEditModal(id) {
+  function openEditModal(id, opts = {}) {
     const record = loadRecords().find((r) => r.id === id);
     if (!record) return;
     editState.id = id;
@@ -788,10 +817,23 @@
     document.getElementById("edit-memo").value = record.memo || "";
     refreshEditCompanyChips();
     document.getElementById("edit-modal").classList.add("active");
+    if (opts.replace) replaceModalState(() => closeEditModal(true));
+    else pushModalState(() => closeEditModal(true));
   }
-  function closeEditModal() {
+  function closeEditModal(fromPopstate) {
     document.getElementById("edit-modal").classList.remove("active");
     editState.id = null;
+    if (!fromPopstate) popModalState();
+  }
+
+  // ---------- side menu ----------
+  function openSideMenu() {
+    document.getElementById("side-menu-overlay").classList.add("active");
+    pushModalState(() => closeSideMenu(true));
+  }
+  function closeSideMenu(fromPopstate) {
+    document.getElementById("side-menu-overlay").classList.remove("active");
+    if (!fromPopstate) popModalState();
   }
 
   // ---------- init ----------
@@ -835,19 +877,23 @@
 
     document.querySelectorAll(".nav-btn").forEach((b) => b.addEventListener("click", () => switchView(b.dataset.view)));
 
-    document.getElementById("menu-btn").addEventListener("click", () => {
-      document.getElementById("side-menu-overlay").classList.add("active");
-    });
+    document.getElementById("menu-btn").addEventListener("click", openSideMenu);
     document.getElementById("side-menu-overlay").addEventListener("click", (e) => {
-      if (e.target.id === "side-menu-overlay") document.getElementById("side-menu-overlay").classList.remove("active");
+      if (e.target.id === "side-menu-overlay") closeSideMenu();
     });
     document.getElementById("menu-home-btn").addEventListener("click", () => {
-      document.getElementById("side-menu-overlay").classList.remove("active");
+      closeSideMenu();
       switchView("input");
     });
     document.getElementById("menu-settings-btn").addEventListener("click", () => {
-      document.getElementById("side-menu-overlay").classList.remove("active");
+      closeSideMenu();
       switchView("settings");
+    });
+
+    window.addEventListener("popstate", () => {
+      if (modalStack.length === 0) return;
+      const closeFn = modalStack.pop();
+      closeFn();
     });
 
     document.querySelectorAll(".theme-option").forEach((btn) => {
