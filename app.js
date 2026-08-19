@@ -211,7 +211,7 @@
   const inputState = { companyId: null };
   const editState = { id: null, companyId: null };
   const monthState = { ym: currentMonthYm() };
-  const calendarState = { ym: currentMonthYm(), selectedDate: todayStr() };
+  const calendarState = { ym: currentMonthYm(), selectedDate: todayStr(), filterCompanyId: null };
 
   function getSuggestedCompanyForDate(dateStr) {
     const records = loadRecords();
@@ -490,10 +490,59 @@
     return cells;
   }
 
+  function renderCalendarCompanyFilter() {
+    const monthRecords = loadRecords().filter((r) => r.date.slice(0, 7) === calendarState.ym);
+    const idsWithRecords = new Set(monthRecords.map((r) => r.companyId));
+    if (calendarState.filterCompanyId && !idsWithRecords.has(calendarState.filterCompanyId)) {
+      calendarState.filterCompanyId = null;
+    }
+
+    const container = document.getElementById("calendar-company-filter");
+    container.innerHTML = "";
+    const companies = loadCompanies().filter((c) => idsWithRecords.has(c.id));
+    if (companies.length === 0) {
+      container.style.display = "none";
+      return;
+    }
+    container.style.display = "flex";
+
+    const allBtn = document.createElement("button");
+    allBtn.type = "button";
+    const allSelected = !calendarState.filterCompanyId;
+    allBtn.className = "company-chip" + (allSelected ? " selected" : "");
+    allBtn.textContent = "전체";
+    if (allSelected) allBtn.style.background = "var(--accent)";
+    allBtn.addEventListener("click", () => {
+      calendarState.filterCompanyId = null;
+      renderCalendarCompanyFilter();
+      renderCalendar();
+    });
+    container.appendChild(allBtn);
+
+    companies.forEach((c) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      const selected = calendarState.filterCompanyId === c.id;
+      btn.className = "company-chip" + (selected ? " selected" : "");
+      btn.textContent = c.name;
+      if (selected) btn.style.background = c.color;
+      btn.addEventListener("click", () => {
+        calendarState.filterCompanyId = c.id;
+        renderCalendarCompanyFilter();
+        renderCalendar();
+      });
+      container.appendChild(btn);
+    });
+  }
+
   function renderCalendar() {
+    renderCalendarCompanyFilter();
     document.getElementById("cal-month-label").textContent = formatMonthLabel(calendarState.ym);
     const sumsByDate = new Map();
-    loadRecords().forEach((r) => sumsByDate.set(r.date, (sumsByDate.get(r.date) || 0) + r.gongsu));
+    loadRecords().forEach((r) => {
+      if (calendarState.filterCompanyId && r.companyId !== calendarState.filterCompanyId) return;
+      sumsByDate.set(r.date, (sumsByDate.get(r.date) || 0) + r.gongsu);
+    });
 
     const container = document.getElementById("calendar-grid");
     container.innerHTML = "";
