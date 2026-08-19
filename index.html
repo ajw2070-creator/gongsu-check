@@ -21,15 +21,20 @@
 </header>
 
 <main id="view-input" class="view active">
-  <section class="card">
-    <div class="field">
-      <label>날짜</label>
-      <div class="date-row">
-        <button type="button" class="step-btn" id="date-prev">‹</button>
-        <input type="date" id="input-date" />
-        <button type="button" class="step-btn" id="date-next">›</button>
-      </div>
+  <section class="card calendar-card">
+    <div class="month-nav">
+      <button type="button" class="step-btn" id="cal-prev">‹</button>
+      <div id="cal-month-label" class="month-label"></div>
+      <button type="button" class="step-btn" id="cal-next">›</button>
     </div>
+    <div class="calendar-weekdays">
+      <span class="sun">일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span class="sat">토</span>
+    </div>
+    <div id="calendar-grid" class="calendar-grid"></div>
+  </section>
+
+  <section class="card">
+    <div class="selected-date-heading" id="selected-date-heading"></div>
 
     <div class="field">
       <label>업체</label>
@@ -56,9 +61,9 @@
 
   <section class="card">
     <div class="card-title-row">
-      <h2>최근 입력</h2>
+      <h2 id="day-list-title">이 날짜의 기록</h2>
     </div>
-    <div id="recent-list" class="record-list"></div>
+    <div id="day-record-list" class="record-list"></div>
   </section>
 </main>
 

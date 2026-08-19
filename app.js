@@ -6,6 +6,92 @@
   const PALETTE = ["#2563eb", "#dc2626", "#16a34a", "#d97706", "#7c3aed", "#0891b2", "#db2777", "#65a30d", "#ea580c", "#4f46e5"];
   const WEEKDAY = ["일", "월", "화", "수", "목", "금", "토"];
 
+  // Korean public holidays (fixed + lunar-based, incl. substitute holidays). Data beyond this
+  // range simply renders with no holiday label; gongsu tracking itself is unaffected.
+  const HOLIDAYS = {
+    "2025-01-01": "신정",
+    "2025-01-28": "설날 연휴",
+    "2025-01-29": "설날",
+    "2025-01-30": "설날 연휴",
+    "2025-03-01": "삼일절",
+    "2025-03-03": "대체공휴일",
+    "2025-05-01": "근로자의 날",
+    "2025-05-05": "어린이날·부처님오신날",
+    "2025-05-06": "대체공휴일",
+    "2025-06-06": "현충일",
+    "2025-08-15": "광복절",
+    "2025-10-03": "개천절",
+    "2025-10-05": "추석 연휴",
+    "2025-10-06": "추석",
+    "2025-10-07": "추석 연휴",
+    "2025-10-08": "대체공휴일",
+    "2025-10-09": "한글날",
+    "2025-12-25": "성탄절",
+
+    "2026-01-01": "신정",
+    "2026-02-16": "설날 연휴",
+    "2026-02-17": "설날",
+    "2026-02-18": "설날 연휴",
+    "2026-03-01": "삼일절",
+    "2026-03-02": "대체공휴일",
+    "2026-05-01": "근로자의 날",
+    "2026-05-05": "어린이날",
+    "2026-05-24": "부처님오신날",
+    "2026-05-25": "대체공휴일",
+    "2026-06-06": "현충일",
+    "2026-07-17": "제헌절",
+    "2026-08-15": "광복절",
+    "2026-08-17": "대체공휴일",
+    "2026-09-24": "추석 연휴",
+    "2026-09-25": "추석",
+    "2026-09-26": "추석 연휴",
+    "2026-10-03": "개천절",
+    "2026-10-05": "대체공휴일",
+    "2026-10-09": "한글날",
+    "2026-12-25": "성탄절",
+
+    "2027-01-01": "신정",
+    "2027-02-06": "설날 연휴",
+    "2027-02-07": "설날",
+    "2027-02-08": "설날 연휴",
+    "2027-02-09": "대체공휴일",
+    "2027-03-01": "삼일절",
+    "2027-05-01": "근로자의 날",
+    "2027-05-05": "어린이날",
+    "2027-05-13": "부처님오신날",
+    "2027-06-06": "현충일",
+    "2027-07-17": "제헌절",
+    "2027-08-15": "광복절",
+    "2027-08-16": "대체공휴일",
+    "2027-09-14": "추석 연휴",
+    "2027-09-15": "추석",
+    "2027-09-16": "추석 연휴",
+    "2027-10-03": "개천절",
+    "2027-10-04": "대체공휴일",
+    "2027-10-09": "한글날",
+    "2027-10-11": "대체공휴일",
+    "2027-12-25": "성탄절",
+    "2027-12-27": "대체공휴일",
+
+    "2028-01-01": "신정",
+    "2028-01-26": "설날 연휴",
+    "2028-01-27": "설날",
+    "2028-01-28": "설날 연휴",
+    "2028-03-01": "삼일절",
+    "2028-05-01": "근로자의 날",
+    "2028-05-02": "부처님오신날",
+    "2028-05-05": "어린이날",
+    "2028-06-06": "현충일",
+    "2028-07-17": "제헌절",
+    "2028-08-15": "광복절",
+    "2028-10-02": "추석 연휴",
+    "2028-10-03": "추석·개천절",
+    "2028-10-04": "추석 연휴",
+    "2028-10-05": "대체공휴일",
+    "2028-10-09": "한글날",
+    "2028-12-25": "성탄절",
+  };
+
   // ---------- storage ----------
   function loadCompanies() {
     try { return JSON.parse(localStorage.getItem(STORAGE_COMPANIES)) || []; }
@@ -78,6 +164,17 @@
   const inputState = { companyId: null };
   const editState = { id: null, companyId: null };
   const monthState = { ym: currentMonthYm() };
+  const calendarState = { ym: currentMonthYm(), selectedDate: todayStr() };
+
+  function getSuggestedCompanyForDate(dateStr) {
+    const records = loadRecords();
+    const companies = loadCompanies();
+    const prior = records
+      .filter((r) => r.date < dateStr)
+      .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt);
+    if (prior.length && companies.some((c) => c.id === prior[0].companyId)) return prior[0].companyId;
+    return companies.length ? companies[0].id : null;
+  }
 
   // ---------- company chip selector (shared) ----------
   function renderCompanyChips(container, selectedId, onSelect) {
@@ -169,13 +266,13 @@
     return el;
   }
 
-  function renderFlatRecordList(container, records) {
+  function renderFlatRecordList(container, records, opts = { showDate: true }) {
     container.innerHTML = "";
     if (records.length === 0) {
       container.innerHTML = '<div class="record-empty">입력된 기록이 없습니다</div>';
       return;
     }
-    records.forEach((r) => container.appendChild(createRecordItemEl(r, { showDate: true })));
+    records.forEach((r) => container.appendChild(createRecordItemEl(r, opts)));
   }
 
   function renderGroupedRecordList(container, records) {
@@ -255,11 +352,80 @@
     });
   }
 
-  // ---------- tab renderers ----------
-  function renderRecentList() {
-    const records = loadRecords();
-    const sorted = [...records].sort((a, b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt);
-    renderFlatRecordList(document.getElementById("recent-list"), sorted.slice(0, 10));
+  // ---------- calendar (input tab) ----------
+  function getCalendarCells(ym) {
+    const [y, m] = ym.split("-").map(Number);
+    const firstWeekday = new Date(y, m - 1, 1).getDay();
+    const daysInMonth = new Date(y, m, 0).getDate();
+    const cells = [];
+    for (let i = 0; i < firstWeekday; i++) {
+      cells.push({ date: toLocalDateStr(new Date(y, m - 1, 1 - (firstWeekday - i))), inMonth: false });
+    }
+    for (let day = 1; day <= daysInMonth; day++) {
+      cells.push({ date: toLocalDateStr(new Date(y, m - 1, day)), inMonth: true });
+    }
+    while (cells.length % 7 !== 0) {
+      const last = new Date(cells[cells.length - 1].date + "T00:00:00");
+      last.setDate(last.getDate() + 1);
+      cells.push({ date: toLocalDateStr(last), inMonth: false });
+    }
+    return cells;
+  }
+
+  function renderCalendar() {
+    document.getElementById("cal-month-label").textContent = formatMonthLabel(calendarState.ym);
+    const sumsByDate = new Map();
+    loadRecords().forEach((r) => sumsByDate.set(r.date, (sumsByDate.get(r.date) || 0) + r.gongsu));
+
+    const container = document.getElementById("calendar-grid");
+    container.innerHTML = "";
+    const today = todayStr();
+    getCalendarCells(calendarState.ym).forEach(({ date, inMonth }) => {
+      const d = new Date(date + "T00:00:00");
+      const weekday = d.getDay();
+      const holidayLabel = HOLIDAYS[date];
+      const classes = ["calendar-cell"];
+      if (!inMonth) classes.push("out-month");
+      if (weekday === 0) classes.push("sunday");
+      if (weekday === 6) classes.push("saturday");
+      if (holidayLabel) classes.push("holiday");
+      if (date === today) classes.push("today");
+      if (date === calendarState.selectedDate) classes.push("selected");
+
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = classes.join(" ");
+      const sum = sumsByDate.get(date);
+      btn.innerHTML = `
+        <span class="cell-day-num">${d.getDate()}</span>
+        ${holidayLabel ? `<span class="cell-holiday-label">${escapeHtml(holidayLabel)}</span>` : ""}
+        ${sum ? `<span class="cell-gongsu-badge">${formatGongsu(sum)}</span>` : ""}
+      `;
+      btn.addEventListener("click", () => selectDate(date));
+      container.appendChild(btn);
+    });
+  }
+
+  function renderSelectedDateHeading() {
+    const suffix = calendarState.selectedDate === todayStr() ? " · 오늘" : "";
+    document.getElementById("selected-date-heading").textContent = formatDateHeading(calendarState.selectedDate) + suffix;
+  }
+
+  function renderDayRecordList() {
+    const records = loadRecords()
+      .filter((r) => r.date === calendarState.selectedDate)
+      .sort((a, b) => b.createdAt - a.createdAt);
+    renderFlatRecordList(document.getElementById("day-record-list"), records, { showDate: false });
+  }
+
+  function selectDate(dateStr) {
+    calendarState.selectedDate = dateStr;
+    calendarState.ym = dateStr.slice(0, 7);
+    inputState.companyId = getSuggestedCompanyForDate(dateStr);
+    renderCalendar();
+    renderSelectedDateHeading();
+    refreshInputCompanyChips();
+    renderDayRecordList();
   }
 
   function renderMonth() {
@@ -318,7 +484,12 @@
   }
 
   function renderCurrentView() {
-    if (currentView === "input") { refreshInputCompanyChips(); renderRecentList(); }
+    if (currentView === "input") {
+      renderCalendar();
+      renderSelectedDateHeading();
+      refreshInputCompanyChips();
+      renderDayRecordList();
+    }
     else if (currentView === "month") renderMonth();
     else if (currentView === "stats") renderStats();
     else if (currentView === "companies") renderCompaniesTab();
@@ -353,35 +524,22 @@
 
   // ---------- init ----------
   function init() {
-    document.getElementById("input-date").value = todayStr();
     renderGongsuPresets();
-    const companies = loadCompanies();
-    inputState.companyId = companies.length ? companies[0].id : null;
+    inputState.companyId = getSuggestedCompanyForDate(calendarState.selectedDate);
 
     document.querySelectorAll(".nav-btn").forEach((b) => b.addEventListener("click", () => switchView(b.dataset.view)));
 
-    document.getElementById("date-prev").addEventListener("click", () => {
-      const el = document.getElementById("input-date");
-      const d = new Date(el.value + "T00:00:00");
-      d.setDate(d.getDate() - 1);
-      el.value = toLocalDateStr(d);
-    });
-    document.getElementById("date-next").addEventListener("click", () => {
-      const el = document.getElementById("input-date");
-      const d = new Date(el.value + "T00:00:00");
-      d.setDate(d.getDate() + 1);
-      el.value = toLocalDateStr(d);
-    });
+    document.getElementById("cal-prev").addEventListener("click", () => { calendarState.ym = shiftMonth(calendarState.ym, -1); renderCalendar(); });
+    document.getElementById("cal-next").addEventListener("click", () => { calendarState.ym = shiftMonth(calendarState.ym, 1); renderCalendar(); });
 
     document.getElementById("gongsu-minus").addEventListener("click", () => adjustGongsu("input-gongsu", -0.5));
     document.getElementById("gongsu-plus").addEventListener("click", () => adjustGongsu("input-gongsu", 0.5));
     document.getElementById("input-gongsu").addEventListener("input", updateGongsuPresetHighlight);
 
     document.getElementById("save-btn").addEventListener("click", () => {
-      const date = document.getElementById("input-date").value;
+      const date = calendarState.selectedDate;
       const gongsu = parseFloat(document.getElementById("input-gongsu").value);
       const memo = document.getElementById("input-memo").value.trim();
-      if (!date) return toast("날짜를 선택하세요");
       if (!inputState.companyId) return toast("업체를 선택하세요");
       if (!gongsu || gongsu <= 0) return toast("공수를 입력하세요");
       const records = loadRecords();
@@ -389,7 +547,8 @@
       saveRecords(records);
       document.getElementById("input-memo").value = "";
       toast("저장했습니다");
-      renderRecentList();
+      renderCalendar();
+      renderDayRecordList();
     });
 
     document.getElementById("month-prev").addEventListener("click", () => { monthState.ym = shiftMonth(monthState.ym, -1); renderMonth(); });
