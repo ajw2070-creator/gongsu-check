@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.ares.md.app",
+        "sha256_cert_fingerprints": ["13:02:D7:BE:E8:36:9F:10:E7:BF:01:14:F3:D9:52:4C:04:59:11:6F:0C:ED:0A:0E:A8:04:78:28:22:6F:A0:3F"]
+      }
+    }]
