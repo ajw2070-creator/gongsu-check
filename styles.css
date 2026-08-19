@@ -71,10 +71,10 @@ html, body {
   border: none;
   background: none;
   color: #fff;
-  font-size: 20px;
+  font-size: 30px;
   line-height: 1;
-  padding: 4px 6px;
-  margin: -4px -6px 0 0;
+  padding: 4px 8px;
+  margin: -4px -8px 0 -6px;
   cursor: pointer;
 }
 
@@ -111,7 +111,7 @@ html, body {
   text-align: left;
 }
 .side-menu-item:active { background: var(--accent-dim); }
-.side-menu-icon { font-size: 18px; }
+.side-menu-icon { width: 19px; height: 19px; flex-shrink: 0; }
 
 .view {
   display: none;

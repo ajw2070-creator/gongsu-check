@@ -768,6 +768,15 @@
     renderCurrentView();
   }
 
+  // ---------- edge-swipe tab switching ----------
+  const TAB_ORDER = ["input", "month", "stats", "companies"];
+  function switchToAdjacentTab(direction) {
+    const idx = TAB_ORDER.indexOf(currentView);
+    if (idx === -1) return;
+    const nextIdx = (idx + direction + TAB_ORDER.length) % TAB_ORDER.length;
+    switchView(TAB_ORDER[nextIdx]);
+  }
+
   // ---------- edit modal ----------
   function openEditModal(id) {
     const record = loadRecords().find((r) => r.id === id);
@@ -799,6 +808,31 @@
       if (openSwipeWrapper && !openSwipeWrapper.contains(e.target)) closeSwipe(openSwipeWrapper);
     });
 
+    const EDGE_ZONE = 24;
+    let edgeSwipeStart = null;
+    document.addEventListener("touchstart", (e) => {
+      if (e.touches.length !== 1 || document.querySelector(".modal-overlay.active")) {
+        edgeSwipeStart = null;
+        return;
+      }
+      const t = e.touches[0];
+      const w = window.innerWidth;
+      if (t.clientX >= w - EDGE_ZONE) edgeSwipeStart = { x: t.clientX, y: t.clientY, edge: "right" };
+      else if (t.clientX <= EDGE_ZONE) edgeSwipeStart = { x: t.clientX, y: t.clientY, edge: "left" };
+      else edgeSwipeStart = null;
+    }, { passive: true });
+    document.addEventListener("touchend", (e) => {
+      if (!edgeSwipeStart) return;
+      const t = e.changedTouches[0];
+      const dx = t.clientX - edgeSwipeStart.x;
+      const dy = t.clientY - edgeSwipeStart.y;
+      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+        if (edgeSwipeStart.edge === "right" && dx < 0) switchToAdjacentTab(1);
+        else if (edgeSwipeStart.edge === "left" && dx > 0) switchToAdjacentTab(-1);
+      }
+      edgeSwipeStart = null;
+    });
+
     document.querySelectorAll(".nav-btn").forEach((b) => b.addEventListener("click", () => switchView(b.dataset.view)));
 
     document.getElementById("menu-btn").addEventListener("click", () => {
@@ -806,6 +840,10 @@
     });
     document.getElementById("side-menu-overlay").addEventListener("click", (e) => {
       if (e.target.id === "side-menu-overlay") document.getElementById("side-menu-overlay").classList.remove("active");
+    });
+    document.getElementById("menu-home-btn").addEventListener("click", () => {
+      document.getElementById("side-menu-overlay").classList.remove("active");
+      switchView("input");
     });
     document.getElementById("menu-settings-btn").addEventListener("click", () => {
       document.getElementById("side-menu-overlay").classList.remove("active");
