@@ -117,6 +117,35 @@
     return company;
   }
 
+  // Keeps (date, company) unique. If a record for that date+company already exists
+  // (other than the one being edited, when id is given), the new values overwrite it
+  // instead of creating a duplicate row.
+  function saveOrMergeRecord({ id, date, companyId, gongsu, memo }) {
+    const records = loadRecords();
+    const dup = records.find((r) => r.date === date && r.companyId === companyId && r.id !== id);
+    if (dup) {
+      dup.gongsu = gongsu;
+      dup.memo = memo;
+      if (id) {
+        const idx = records.findIndex((r) => r.id === id);
+        if (idx !== -1) records.splice(idx, 1);
+      }
+      saveRecords(records);
+      return { merged: true };
+    }
+    if (id) {
+      const rec = records.find((r) => r.id === id);
+      rec.date = date;
+      rec.companyId = companyId;
+      rec.gongsu = gongsu;
+      rec.memo = memo;
+    } else {
+      records.push({ id: uid(), date, companyId, gongsu, memo, createdAt: Date.now() });
+    }
+    saveRecords(records);
+    return { merged: false };
+  }
+
   // ---------- formatting ----------
   function escapeHtml(str) {
     return String(str).replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
@@ -264,8 +293,35 @@
         ${record.memo ? `<div class="record-memo">${escapeHtml(record.memo)}</div>` : ""}
       </div>
       <div class="record-gongsu">${formatGongsu(record.gongsu)}</div>
-      ${opts.onDelete ? '<button type="button" class="record-delete-btn">삭제</button>' : ""}
+      ${opts.onDelete && !opts.swipeDelete ? '<button type="button" class="record-delete-btn">삭제</button>' : ""}
     `;
+
+    if (opts.swipeDelete) {
+      const wrapper = document.createElement("div");
+      wrapper.className = "swipe-wrapper";
+      const trash = document.createElement("button");
+      trash.type = "button";
+      trash.className = "swipe-trash-btn";
+      trash.textContent = "🗑";
+      trash.addEventListener("click", (e) => {
+        e.stopPropagation();
+        closeSwipe(wrapper);
+        if (opts.onDelete) opts.onDelete(record);
+      });
+      wrapper.appendChild(el);
+      wrapper.appendChild(trash);
+      attachSwipeToDelete(wrapper, el);
+      el.addEventListener("click", (e) => {
+        if (wrapper.classList.contains("swipe-open")) {
+          e.preventDefault();
+          closeSwipe(wrapper);
+          return;
+        }
+        if (opts.onClick) opts.onClick(record); else openEditModal(record.id);
+      });
+      return wrapper;
+    }
+
     el.addEventListener("click", () => (opts.onClick ? opts.onClick(record) : openEditModal(record.id)));
     if (opts.onDelete) {
       el.querySelector(".record-delete-btn").addEventListener("click", (e) => {
@@ -276,16 +332,49 @@
     return el;
   }
 
-  function renderFlatRecordList(container, records, opts = { showDate: true }) {
-    container.innerHTML = "";
-    if (records.length === 0) {
-      container.innerHTML = '<div class="record-empty">입력된 기록이 없습니다</div>';
-      return;
-    }
-    records.forEach((r) => container.appendChild(createRecordItemEl(r, opts)));
+  // ---------- swipe-to-delete (used by the input tab's monthly record list) ----------
+  // Toggles a class rather than following the finger: dragging the row itself (instead of
+  // just growing its right padding) would clip the dot/company text off the left edge once
+  // shifted by the trash button's width, since the row is exactly as wide as its container.
+  let openSwipeWrapper = null;
+
+  function closeSwipe(wrapper) {
+    wrapper.classList.remove("swipe-open");
+    if (openSwipeWrapper === wrapper) openSwipeWrapper = null;
+  }
+  function openSwipe(wrapper) {
+    if (openSwipeWrapper && openSwipeWrapper !== wrapper) closeSwipe(openSwipeWrapper);
+    wrapper.classList.add("swipe-open");
+    openSwipeWrapper = wrapper;
   }
 
-  function renderGroupedRecordList(container, records) {
+  function attachSwipeToDelete(wrapper, content) {
+    let startX = 0, startY = 0, tracking = false, horizontal = false;
+    content.addEventListener("touchstart", (e) => {
+      if (e.touches.length !== 1) return;
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      tracking = true;
+      horizontal = false;
+    }, { passive: true });
+
+    content.addEventListener("touchmove", (e) => {
+      if (!tracking) return;
+      const dx = e.touches[0].clientX - startX;
+      const dy = e.touches[0].clientY - startY;
+      if (!horizontal) {
+        if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+        horizontal = Math.abs(dx) > Math.abs(dy);
+        if (!horizontal) { tracking = false; return; }
+      }
+      if (dx < -24) openSwipe(wrapper);
+      else if (dx > 24) closeSwipe(wrapper);
+    }, { passive: true });
+
+    content.addEventListener("touchend", () => { tracking = false; });
+  }
+
+  function renderGroupedRecordList(container, records, opts = {}) {
     container.innerHTML = "";
     if (records.length === 0) {
       container.innerHTML = '<div class="record-empty">이번 달 기록이 없습니다</div>';
@@ -300,7 +389,7 @@
       container.appendChild(heading);
       const group = document.createElement("div");
       group.className = "record-date-group";
-      byDate[date].sort((a, b) => b.createdAt - a.createdAt).forEach((r) => group.appendChild(createRecordItemEl(r)));
+      byDate[date].sort((a, b) => b.createdAt - a.createdAt).forEach((r) => group.appendChild(createRecordItemEl(r, opts)));
       container.appendChild(group);
     });
   }
@@ -425,11 +514,19 @@
     document.getElementById("selected-date-heading").textContent = formatDateHeading(calendarState.selectedDate) + suffix;
   }
 
-  function renderDayRecordList() {
-    const records = loadRecords()
-      .filter((r) => r.date === calendarState.selectedDate)
-      .sort((a, b) => b.createdAt - a.createdAt);
-    renderFlatRecordList(document.getElementById("day-record-list"), records, { showDate: false });
+  function renderInputMonthList() {
+    document.getElementById("day-list-title").textContent = formatMonthLabel(calendarState.ym) + " 기록";
+    const records = loadRecords().filter((r) => r.date.slice(0, 7) === calendarState.ym);
+    renderGroupedRecordList(document.getElementById("day-record-list"), records, {
+      swipeDelete: true,
+      onDelete: (rec) => {
+        if (!confirm("이 공수 기록을 삭제할까요?")) return;
+        saveRecords(loadRecords().filter((x) => x.id !== rec.id));
+        toast("삭제했습니다");
+        renderCalendar();
+        renderInputMonthList();
+      },
+    });
   }
 
   function selectDate(dateStr) {
@@ -439,7 +536,7 @@
     renderCalendar();
     renderSelectedDateHeading();
     refreshInputCompanyChips();
-    renderDayRecordList();
+    renderInputMonthList();
   }
 
   // ---------- day quick-edit modal (double-tap a calendar date) ----------
@@ -471,7 +568,7 @@
         toast("삭제했습니다");
         renderDayModalList();
         renderCalendar();
-        if (calendarState.selectedDate === dayModalState.date) renderDayRecordList();
+        if (dayModalState.date.slice(0, 7) === calendarState.ym) renderInputMonthList();
       },
     })));
   }
@@ -552,7 +649,7 @@
       renderCalendar();
       renderSelectedDateHeading();
       refreshInputCompanyChips();
-      renderDayRecordList();
+      renderInputMonthList();
     }
     else if (currentView === "month") renderMonth();
     else if (currentView === "stats") renderStats();
@@ -591,6 +688,13 @@
     renderGongsuPresets("gongsu-presets", "input-gongsu");
     inputState.companyId = getSuggestedCompanyForDate(calendarState.selectedDate);
 
+    document.addEventListener("touchstart", (e) => {
+      if (openSwipeWrapper && !openSwipeWrapper.contains(e.target)) closeSwipe(openSwipeWrapper);
+    }, { passive: true });
+    document.addEventListener("click", (e) => {
+      if (openSwipeWrapper && !openSwipeWrapper.contains(e.target)) closeSwipe(openSwipeWrapper);
+    });
+
     document.querySelectorAll(".nav-btn").forEach((b) => b.addEventListener("click", () => switchView(b.dataset.view)));
 
     document.getElementById("cal-prev").addEventListener("click", () => { calendarState.ym = shiftMonth(calendarState.ym, -1); renderCalendar(); });
@@ -606,13 +710,11 @@
       const memo = document.getElementById("input-memo").value.trim();
       if (!inputState.companyId) return toast("업체를 선택하세요");
       if (!gongsu || gongsu <= 0) return toast("공수를 입력하세요");
-      const records = loadRecords();
-      records.push({ id: uid(), date, companyId: inputState.companyId, gongsu, memo, createdAt: Date.now() });
-      saveRecords(records);
+      const { merged } = saveOrMergeRecord({ date, companyId: inputState.companyId, gongsu, memo });
       document.getElementById("input-memo").value = "";
-      toast("저장했습니다");
+      toast(merged ? "기존 기록을 수정했습니다" : "저장했습니다");
       renderCalendar();
-      renderDayRecordList();
+      renderInputMonthList();
     });
 
     document.getElementById("month-prev").addEventListener("click", () => { monthState.ym = shiftMonth(monthState.ym, -1); renderMonth(); });
@@ -634,22 +736,15 @@
       if (e.target.id === "edit-modal") closeEditModal();
     });
     document.getElementById("edit-save-btn").addEventListener("click", () => {
-      const records = loadRecords();
-      const record = records.find((r) => r.id === editState.id);
-      if (!record) return closeEditModal();
       const date = document.getElementById("edit-date").value;
       const gongsu = parseFloat(document.getElementById("edit-gongsu").value);
       const memo = document.getElementById("edit-memo").value.trim();
       if (!date) return toast("날짜를 선택하세요");
       if (!editState.companyId) return toast("업체를 선택하세요");
       if (!gongsu || gongsu <= 0) return toast("공수를 입력하세요");
-      record.date = date;
-      record.companyId = editState.companyId;
-      record.gongsu = gongsu;
-      record.memo = memo;
-      saveRecords(records);
+      const { merged } = saveOrMergeRecord({ id: editState.id, date, companyId: editState.companyId, gongsu, memo });
       closeEditModal();
-      toast("수정했습니다");
+      toast(merged ? "같은 날짜·업체 기록에 합쳐서 수정했습니다" : "수정했습니다");
       renderCurrentView();
     });
     document.getElementById("edit-delete-btn").addEventListener("click", () => {
@@ -673,14 +768,12 @@
       const memo = document.getElementById("day-modal-memo").value.trim();
       if (!dayModalState.companyId) return toast("업체를 선택하세요");
       if (!gongsu || gongsu <= 0) return toast("공수를 입력하세요");
-      const records = loadRecords();
-      records.push({ id: uid(), date: dayModalState.date, companyId: dayModalState.companyId, gongsu, memo, createdAt: Date.now() });
-      saveRecords(records);
+      const { merged } = saveOrMergeRecord({ date: dayModalState.date, companyId: dayModalState.companyId, gongsu, memo });
       document.getElementById("day-modal-memo").value = "";
-      toast("저장했습니다");
+      toast(merged ? "기존 기록을 수정했습니다" : "저장했습니다");
       renderDayModalList();
       renderCalendar();
-      if (calendarState.selectedDate === dayModalState.date) renderDayRecordList();
+      if (dayModalState.date.slice(0, 7) === calendarState.ym) renderInputMonthList();
     });
 
     switchView("input");

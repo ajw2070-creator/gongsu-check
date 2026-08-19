@@ -239,6 +239,35 @@ input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 }
 .record-item:last-child { border-bottom: none; }
 
+.swipe-wrapper { position: relative; }
+.swipe-wrapper:last-child .record-item { border-bottom: none; }
+.swipe-wrapper .record-item {
+  position: relative;
+  z-index: 1;
+  background: var(--card-bg);
+  touch-action: pan-y;
+  width: 100%;
+  transition: width 0.18s ease;
+}
+.swipe-wrapper.swipe-open .record-item { width: calc(100% - 84px); }
+.swipe-trash-btn {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 72px;
+  border: none;
+  background: var(--danger);
+  color: #fff;
+  font-size: 20px;
+  cursor: pointer;
+  z-index: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease;
+}
+.swipe-wrapper.swipe-open .swipe-trash-btn { opacity: 1; pointer-events: auto; }
+
 .record-dot {
   width: 10px;
   height: 10px;
@@ -247,7 +276,7 @@ input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 }
 
 .record-main { flex: 1; min-width: 0; }
-.record-company { font-size: 14px; font-weight: 700; }
+.record-company { font-size: 14px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .record-memo { font-size: 12px; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .record-gongsu { font-size: 15px; font-weight: 700; color: var(--accent); flex-shrink: 0; }
 
