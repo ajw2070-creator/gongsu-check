@@ -125,6 +125,9 @@
     const n = Math.round(v * 100) / 100;
     return parseFloat(n.toFixed(2)).toString();
   }
+  function formatGongsuUnit(v) {
+    return formatGongsu(v) + " 공수";
+  }
   function toLocalDateStr(d) {
     const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, "0"), day = String(d.getDate()).padStart(2, "0");
     return `${y}-${m}-${day}`;
@@ -316,7 +319,7 @@
         <span class="record-dot" style="background:${company ? company.color : "#ccc"}"></span>
         <span class="summary-name">${company ? escapeHtml(company.name) : "(삭제된 업체)"}</span>
         <span class="summary-count">${count}건</span>
-        <span class="summary-value">${formatGongsu(sum)}</span>
+        <span class="summary-value">${formatGongsuUnit(sum)}</span>
       `;
       container.appendChild(el);
     });
@@ -342,7 +345,7 @@
       el.innerHTML = `
         <span class="summary-name">${formatMonthLabel(ym)}</span>
         <span class="summary-count">${count}건</span>
-        <span class="summary-value">${formatGongsu(sum)}</span>
+        <span class="summary-value">${formatGongsuUnit(sum)}</span>
       `;
       el.addEventListener("click", () => {
         monthState.ym = ym;
@@ -432,7 +435,7 @@
     document.getElementById("month-label").textContent = formatMonthLabel(monthState.ym);
     const records = loadRecords().filter((r) => r.date.slice(0, 7) === monthState.ym);
     const total = records.reduce((s, r) => s + r.gongsu, 0);
-    document.getElementById("month-total").textContent = formatGongsu(total);
+    document.getElementById("month-total").textContent = formatGongsuUnit(total);
     renderSummaryByCompany(document.getElementById("month-company-summary"), records);
     renderGroupedRecordList(document.getElementById("month-record-list"), records);
   }
