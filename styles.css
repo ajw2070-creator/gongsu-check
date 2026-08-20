@@ -478,16 +478,33 @@ input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 .summary-count { font-size: 12px; color: var(--muted); }
 .summary-value { font-size: 15px; font-weight: 700; }
 
-.manage-list { display: flex; flex-direction: column; gap: 8px; }
+.summary-amount-btn {
+  flex-shrink: 0;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-bg);
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.summary-amount-btn.active { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); }
+
+.manage-list { display: flex; flex-direction: column; gap: 4px; }
 .manage-item {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 4px;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 4px;
   border-bottom: 1px solid var(--border);
 }
 .manage-item:last-child { border-bottom: none; }
+.manage-item-top { display: flex; align-items: center; gap: 10px; }
 .manage-name { flex: 1; font-size: 14px; font-weight: 600; }
+.manage-item-rate { font-size: 12px; color: var(--text-dim); padding-left: 20px; }
+.manage-item-actions { display: flex; gap: 8px; padding-left: 20px; flex-wrap: wrap; }
 .manage-btn {
   padding: 6px 12px;
   border-radius: 8px;

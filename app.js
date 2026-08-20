@@ -172,6 +172,18 @@
   function formatGongsuUnit(v) {
     return formatGongsu(v) + " 공수";
   }
+  function formatWon(n) {
+    return Math.round(n).toLocaleString("ko-KR") + "원";
+  }
+  // Hourly rates are converted to a per-gongsu (per-day) amount assuming an 8-hour standard day,
+  // so both rate types reduce to the same "amount per 1 공수" figure for calculations.
+  function getCompanyEffectiveDailyRate(company) {
+    if (!company || !company.rate) return 0;
+    return company.rateType === "hourly" ? company.rate * 8 : company.rate;
+  }
+  function calcRecordsAmount(records) {
+    return records.reduce((sum, r) => sum + r.gongsu * getCompanyEffectiveDailyRate(getCompanyById(r.companyId)), 0);
+  }
   function toLocalDateStr(d) {
     const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, "0"), day = String(d.getDate()).padStart(2, "0");
     return `${y}-${m}-${day}`;
@@ -212,6 +224,8 @@
   const editState = { id: null, companyId: null };
   const monthState = { ym: currentMonthYm() };
   const calendarState = { ym: currentMonthYm(), selectedDate: todayStr(), filterCompanyId: null };
+  const statsAmountView = { companies: new Set(), months: new Set() };
+  const rateModalState = { companyId: null, rateType: "daily" };
 
   function getSuggestedCompanyForDate(dateStr) {
     const records = loadRecords();
@@ -413,7 +427,7 @@
     });
   }
 
-  function renderSummaryByCompany(container, records) {
+  function renderSummaryByCompany(container, records, opts = {}) {
     container.innerHTML = "";
     if (records.length === 0) {
       container.innerHTML = '<div class="summary-empty">기록이 없습니다</div>';
@@ -421,21 +435,35 @@
     }
     const map = new Map();
     records.forEach((r) => {
-      const cur = map.get(r.companyId) || { sum: 0, count: 0 };
+      const cur = map.get(r.companyId) || { sum: 0, count: 0, records: [] };
       cur.sum += r.gongsu;
       cur.count += 1;
+      cur.records.push(r);
       map.set(r.companyId, cur);
     });
-    [...map.entries()].sort((a, b) => b[1].sum - a[1].sum).forEach(([companyId, { sum, count }]) => {
+    [...map.entries()].sort((a, b) => b[1].sum - a[1].sum).forEach(([companyId, { sum, count, records: companyRecords }]) => {
       const company = getCompanyById(companyId);
       const el = document.createElement("div");
       el.className = "summary-item";
+      const showAmount = opts.showAmountToggle && statsAmountView.companies.has(companyId);
+      const valueHtml = showAmount
+        ? (company && company.rate ? formatWon(calcRecordsAmount(companyRecords)) : "단가 미설정")
+        : formatGongsuUnit(sum);
       el.innerHTML = `
         <span class="record-dot" style="background:${company ? company.color : "#ccc"}"></span>
         <span class="summary-name">${company ? escapeHtml(company.name) : "(삭제된 업체)"}</span>
         <span class="summary-count">${count}건</span>
-        <span class="summary-value">${formatGongsuUnit(sum)}</span>
+        <span class="summary-value">${valueHtml}</span>
+        ${opts.showAmountToggle ? `<button type="button" class="summary-amount-btn${showAmount ? " active" : ""}">${showAmount ? "공수보기" : "금액보기"}</button>` : ""}
       `;
+      if (opts.showAmountToggle) {
+        el.querySelector(".summary-amount-btn").addEventListener("click", (e) => {
+          e.stopPropagation();
+          if (statsAmountView.companies.has(companyId)) statsAmountView.companies.delete(companyId);
+          else statsAmountView.companies.add(companyId);
+          renderSummaryByCompany(container, records, opts);
+        });
+      }
       container.appendChild(el);
     });
   }
@@ -449,22 +477,32 @@
     const map = new Map();
     records.forEach((r) => {
       const ym = r.date.slice(0, 7);
-      const cur = map.get(ym) || { sum: 0, count: 0 };
+      const cur = map.get(ym) || { sum: 0, count: 0, records: [] };
       cur.sum += r.gongsu;
       cur.count += 1;
+      cur.records.push(r);
       map.set(ym, cur);
     });
-    [...map.entries()].sort((a, b) => b[0].localeCompare(a[0])).forEach(([ym, { sum, count }]) => {
+    [...map.entries()].sort((a, b) => b[0].localeCompare(a[0])).forEach(([ym, { sum, count, records: monthRecords }]) => {
       const el = document.createElement("div");
       el.className = "summary-item clickable";
+      const showAmount = statsAmountView.months.has(ym);
+      const valueHtml = showAmount ? formatWon(calcRecordsAmount(monthRecords)) : formatGongsuUnit(sum);
       el.innerHTML = `
         <span class="summary-name">${formatMonthLabel(ym)}</span>
         <span class="summary-count">${count}건</span>
-        <span class="summary-value">${formatGongsuUnit(sum)}</span>
+        <span class="summary-value">${valueHtml}</span>
+        <button type="button" class="summary-amount-btn${showAmount ? " active" : ""}">${showAmount ? "공수보기" : "금액보기"}</button>
       `;
       el.addEventListener("click", () => {
         monthState.ym = ym;
         switchView("month");
+      });
+      el.querySelector(".summary-amount-btn").addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (statsAmountView.months.has(ym)) statsAmountView.months.delete(ym);
+        else statsAmountView.months.add(ym);
+        renderMonthSummary(container, records);
       });
       container.appendChild(el);
     });
@@ -673,7 +711,7 @@
 
   function renderStats() {
     const records = loadRecords();
-    renderSummaryByCompany(document.getElementById("all-company-summary"), records);
+    renderSummaryByCompany(document.getElementById("all-company-summary"), records, { showAmountToggle: true });
     renderMonthSummary(document.getElementById("all-month-summary"), records);
   }
 
@@ -690,12 +728,22 @@
       const usedCount = records.filter((r) => r.companyId === c.id).length;
       const el = document.createElement("div");
       el.className = "manage-item";
+      const rateLabel = c.rate
+        ? `${c.rateType === "hourly" ? "시급" : "일급"} ${formatWon(c.rate)}`
+        : "단가 미설정";
       el.innerHTML = `
-        <span class="record-dot" style="background:${c.color}"></span>
-        <span class="manage-name">${escapeHtml(c.name)}</span>
-        <button type="button" class="manage-btn" data-action="rename">이름변경</button>
-        <button type="button" class="manage-btn danger" data-action="delete">삭제</button>
+        <div class="manage-item-top">
+          <span class="record-dot" style="background:${c.color}"></span>
+          <span class="manage-name">${escapeHtml(c.name)}</span>
+        </div>
+        <div class="manage-item-rate">${rateLabel}</div>
+        <div class="manage-item-actions">
+          <button type="button" class="manage-btn" data-action="rate">단가 설정</button>
+          <button type="button" class="manage-btn" data-action="rename">이름변경</button>
+          <button type="button" class="manage-btn danger" data-action="delete">삭제</button>
+        </div>
       `;
+      el.querySelector('[data-action="rate"]').addEventListener("click", () => openRateModal(c.id));
       el.querySelector('[data-action="rename"]').addEventListener("click", () => {
         const name = prompt("새 업체명을 입력하세요", c.name);
         if (!name || !name.trim()) return;
@@ -715,6 +763,31 @@
       });
       container.appendChild(el);
     });
+  }
+
+  // ---------- rate modal (company management) ----------
+  function refreshRateTypeOptions() {
+    document.querySelectorAll(".rate-type-option").forEach((btn) => {
+      btn.classList.toggle("selected", btn.dataset.type === rateModalState.rateType);
+    });
+  }
+
+  function openRateModal(companyId) {
+    const company = getCompanyById(companyId);
+    if (!company) return;
+    rateModalState.companyId = companyId;
+    rateModalState.rateType = company.rateType === "hourly" ? "hourly" : "daily";
+    document.getElementById("rate-modal-company-name").textContent = company.name;
+    document.getElementById("rate-amount-input").value = company.rate || "";
+    refreshRateTypeOptions();
+    document.getElementById("rate-modal").classList.add("active");
+    pushModalState(() => closeRateModal(true));
+  }
+
+  function closeRateModal(fromPopstate) {
+    document.getElementById("rate-modal").classList.remove("active");
+    rateModalState.companyId = null;
+    if (!fromPopstate) popModalState();
   }
 
   function renderSettingsTab() {
@@ -993,6 +1066,30 @@
       renderDayModalList();
       renderCalendar();
       if (dayModalState.date.slice(0, 7) === calendarState.ym) renderInputMonthList();
+    });
+
+    document.getElementById("rate-modal-close-btn").addEventListener("click", () => closeRateModal());
+    document.getElementById("rate-modal").addEventListener("click", (e) => {
+      if (e.target.id === "rate-modal") closeRateModal();
+    });
+    document.querySelectorAll(".rate-type-option").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        rateModalState.rateType = btn.dataset.type;
+        refreshRateTypeOptions();
+      });
+    });
+    document.getElementById("rate-save-btn").addEventListener("click", () => {
+      const companies = loadCompanies();
+      const company = companies.find((c) => c.id === rateModalState.companyId);
+      if (!company) return closeRateModal();
+      const amount = parseFloat(document.getElementById("rate-amount-input").value);
+      if (!amount || amount <= 0) return toast("단가를 입력하세요");
+      company.rateType = rateModalState.rateType;
+      company.rate = Math.round(amount);
+      saveCompanies(companies);
+      closeRateModal();
+      toast("단가를 저장했습니다");
+      renderCompaniesTab();
     });
 
     switchView("input");
