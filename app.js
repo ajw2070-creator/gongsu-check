@@ -899,7 +899,7 @@
     document.querySelectorAll(".view").forEach((v) => v.classList.remove("active"));
     document.getElementById("view-" + view).classList.add("active");
     document.querySelectorAll(".nav-btn").forEach((b) => b.classList.toggle("active", b.dataset.view === view));
-    const titles = { input: "공수체크", month: "월별현황", stats: "전체통계", companies: "업체관리", settings: "설정" };
+    const titles = { input: "공수체크", month: "월별현황", stats: "전체통계", companies: "업체관리", settings: "설정", guide: "기능설명" };
     document.getElementById("header-title").textContent = titles[view];
     renderCurrentView();
   }
@@ -1015,6 +1015,10 @@
     document.getElementById("menu-home-btn").addEventListener("click", () => {
       closeSideMenu();
       switchView("input");
+    });
+    document.getElementById("menu-guide-btn").addEventListener("click", () => {
+      closeSideMenu();
+      switchView("guide");
     });
     document.getElementById("menu-settings-btn").addEventListener("click", () => {
       closeSideMenu();
