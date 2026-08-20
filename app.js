@@ -574,6 +574,72 @@
     });
   }
 
+  // ---------- calendar long-press-to-delete ----------
+  let armedDeleteCell = null;
+  let armedDeleteDate = null;
+
+  function disarmDeleteCell() {
+    if (armedDeleteCell) armedDeleteCell.classList.remove("armed-delete");
+    armedDeleteCell = null;
+    armedDeleteDate = null;
+  }
+  function armDeleteCell(cell, date) {
+    if (armedDeleteCell && armedDeleteCell !== cell) disarmDeleteCell();
+    cell.classList.add("armed-delete");
+    armedDeleteCell = cell;
+    armedDeleteDate = date;
+  }
+
+  function attachCalendarCellGestures(btn, date) {
+    let startX = 0, startY = 0, timer = null, justArmed = false;
+
+    btn.addEventListener("touchstart", (e) => {
+      if (e.touches.length !== 1) return;
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      timer = setTimeout(() => {
+        timer = null;
+        if (!loadRecords().some((r) => r.date === date)) return;
+        justArmed = true;
+        armDeleteCell(btn, date);
+      }, 500);
+    }, { passive: true });
+
+    btn.addEventListener("touchmove", (e) => {
+      if (!timer) return;
+      const dx = e.touches[0].clientX - startX;
+      const dy = e.touches[0].clientY - startY;
+      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) { clearTimeout(timer); timer = null; }
+    }, { passive: true });
+
+    btn.addEventListener("touchend", () => { if (timer) { clearTimeout(timer); timer = null; } });
+
+    btn.addEventListener("click", (e) => {
+      if (justArmed) { justArmed = false; e.preventDefault(); return; }
+      if (btn.classList.contains("armed-delete")) {
+        e.preventDefault();
+        const dayRecords = loadRecords().filter((r) => r.date === date);
+        if (confirm(`${formatDateHeading(date)} 기록 ${dayRecords.length}건을 모두 삭제할까요?`)) {
+          saveRecords(loadRecords().filter((r) => r.date !== date));
+          toast("삭제했습니다");
+          disarmDeleteCell();
+          renderCalendar();
+          if (date.slice(0, 7) === calendarState.ym) renderInputMonthList();
+        } else {
+          disarmDeleteCell();
+        }
+        return;
+      }
+      selectDate(date);
+    });
+
+    btn.addEventListener("dblclick", (e) => {
+      e.preventDefault();
+      disarmDeleteCell();
+      openDayModal(date);
+    });
+  }
+
   function renderCalendar() {
     renderCalendarCompanyFilter();
     document.getElementById("cal-month-label").textContent = formatMonthLabel(calendarState.ym);
@@ -583,6 +649,8 @@
       sumsByDate.set(r.date, (sumsByDate.get(r.date) || 0) + r.gongsu);
     });
 
+    armedDeleteCell = null;
+    armedDeleteDate = null;
     const container = document.getElementById("calendar-grid");
     container.innerHTML = "";
     const today = todayStr();
@@ -606,12 +674,9 @@
         <span class="cell-day-num">${d.getDate()}</span>
         ${holidayLabel ? `<span class="cell-holiday-label">${escapeHtml(holidayLabel)}</span>` : ""}
         ${sum ? `<span class="cell-gongsu-badge">${formatGongsu(sum)}</span>` : ""}
+        <span class="cell-delete-icon">🗑</span>
       `;
-      btn.addEventListener("click", () => selectDate(date));
-      btn.addEventListener("dblclick", (e) => {
-        e.preventDefault();
-        openDayModal(date);
-      });
+      attachCalendarCellGestures(btn, date);
       container.appendChild(btn);
     });
   }
@@ -922,9 +987,11 @@
 
     document.addEventListener("touchstart", (e) => {
       if (openSwipeWrapper && !openSwipeWrapper.contains(e.target)) closeSwipe(openSwipeWrapper);
+      if (armedDeleteCell && !armedDeleteCell.contains(e.target)) disarmDeleteCell();
     }, { passive: true });
     document.addEventListener("click", (e) => {
       if (openSwipeWrapper && !openSwipeWrapper.contains(e.target)) closeSwipe(openSwipeWrapper);
+      if (armedDeleteCell && !armedDeleteCell.contains(e.target)) disarmDeleteCell();
     });
 
     const EDGE_ZONE = 24;
