@@ -574,24 +574,26 @@
     });
   }
 
-  // ---------- calendar long-press-to-delete ----------
-  let armedDeleteCell = null;
-  let armedDeleteDate = null;
+  // ---------- calendar long-press-to-delete popup ----------
+  const calendarDeleteModalState = { date: null };
 
-  function disarmDeleteCell() {
-    if (armedDeleteCell) armedDeleteCell.classList.remove("armed-delete");
-    armedDeleteCell = null;
-    armedDeleteDate = null;
+  function openCalendarDeleteModal(date) {
+    const count = loadRecords().filter((r) => r.date === date).length;
+    if (count === 0) return;
+    calendarDeleteModalState.date = date;
+    document.getElementById("calendar-delete-modal-heading").textContent = formatDateHeading(date);
+    document.getElementById("calendar-delete-modal-desc").textContent = `이 날짜의 기록 ${count}건을 모두 삭제합니다.`;
+    document.getElementById("calendar-delete-modal").classList.add("active");
+    pushModalState(() => closeCalendarDeleteModal(true));
   }
-  function armDeleteCell(cell, date) {
-    if (armedDeleteCell && armedDeleteCell !== cell) disarmDeleteCell();
-    cell.classList.add("armed-delete");
-    armedDeleteCell = cell;
-    armedDeleteDate = date;
+  function closeCalendarDeleteModal(fromPopstate) {
+    document.getElementById("calendar-delete-modal").classList.remove("active");
+    calendarDeleteModalState.date = null;
+    if (!fromPopstate) popModalState();
   }
 
   function attachCalendarCellGestures(btn, date) {
-    let startX = 0, startY = 0, timer = null, justArmed = false;
+    let startX = 0, startY = 0, timer = null, justLongPressed = false;
 
     btn.addEventListener("touchstart", (e) => {
       if (e.touches.length !== 1) return;
@@ -600,8 +602,8 @@
       timer = setTimeout(() => {
         timer = null;
         if (!loadRecords().some((r) => r.date === date)) return;
-        justArmed = true;
-        armDeleteCell(btn, date);
+        justLongPressed = true;
+        openCalendarDeleteModal(date);
       }, 500);
     }, { passive: true });
 
@@ -612,30 +614,20 @@
       if (Math.abs(dx) > 10 || Math.abs(dy) > 10) { clearTimeout(timer); timer = null; }
     }, { passive: true });
 
-    btn.addEventListener("touchend", () => { if (timer) { clearTimeout(timer); timer = null; } });
+    btn.addEventListener("touchend", (e) => {
+      if (timer) { clearTimeout(timer); timer = null; }
+      // Suppress the browser's synthetic click that would otherwise fire at the original touch
+      // coordinates, which by now may be covered by the modal overlay just opened underneath it.
+      if (justLongPressed) e.preventDefault();
+    });
 
     btn.addEventListener("click", (e) => {
-      if (justArmed) { justArmed = false; e.preventDefault(); return; }
-      if (btn.classList.contains("armed-delete")) {
-        e.preventDefault();
-        const dayRecords = loadRecords().filter((r) => r.date === date);
-        if (confirm(`${formatDateHeading(date)} 기록 ${dayRecords.length}건을 모두 삭제할까요?`)) {
-          saveRecords(loadRecords().filter((r) => r.date !== date));
-          toast("삭제했습니다");
-          disarmDeleteCell();
-          renderCalendar();
-          if (date.slice(0, 7) === calendarState.ym) renderInputMonthList();
-        } else {
-          disarmDeleteCell();
-        }
-        return;
-      }
+      if (justLongPressed) { justLongPressed = false; e.preventDefault(); return; }
       selectDate(date);
     });
 
     btn.addEventListener("dblclick", (e) => {
       e.preventDefault();
-      disarmDeleteCell();
       openDayModal(date);
     });
   }
@@ -649,8 +641,6 @@
       sumsByDate.set(r.date, (sumsByDate.get(r.date) || 0) + r.gongsu);
     });
 
-    armedDeleteCell = null;
-    armedDeleteDate = null;
     const container = document.getElementById("calendar-grid");
     container.innerHTML = "";
     const today = todayStr();
@@ -674,7 +664,6 @@
         <span class="cell-day-num">${d.getDate()}</span>
         ${holidayLabel ? `<span class="cell-holiday-label">${escapeHtml(holidayLabel)}</span>` : ""}
         ${sum ? `<span class="cell-gongsu-badge">${formatGongsu(sum)}</span>` : ""}
-        <span class="cell-delete-icon">🗑</span>
       `;
       attachCalendarCellGestures(btn, date);
       container.appendChild(btn);
@@ -987,11 +976,9 @@
 
     document.addEventListener("touchstart", (e) => {
       if (openSwipeWrapper && !openSwipeWrapper.contains(e.target)) closeSwipe(openSwipeWrapper);
-      if (armedDeleteCell && !armedDeleteCell.contains(e.target)) disarmDeleteCell();
     }, { passive: true });
     document.addEventListener("click", (e) => {
       if (openSwipeWrapper && !openSwipeWrapper.contains(e.target)) closeSwipe(openSwipeWrapper);
-      if (armedDeleteCell && !armedDeleteCell.contains(e.target)) disarmDeleteCell();
     });
 
     const EDGE_ZONE = 24;
@@ -1141,6 +1128,20 @@
       renderDayModalList();
       renderCalendar();
       if (dayModalState.date.slice(0, 7) === calendarState.ym) renderInputMonthList();
+    });
+
+    document.getElementById("calendar-delete-cancel-btn").addEventListener("click", () => closeCalendarDeleteModal());
+    document.getElementById("calendar-delete-modal").addEventListener("click", (e) => {
+      if (e.target.id === "calendar-delete-modal") closeCalendarDeleteModal();
+    });
+    document.getElementById("calendar-delete-confirm-btn").addEventListener("click", () => {
+      const date = calendarDeleteModalState.date;
+      if (!date) return closeCalendarDeleteModal();
+      saveRecords(loadRecords().filter((r) => r.date !== date));
+      toast("삭제했습니다");
+      closeCalendarDeleteModal();
+      renderCalendar();
+      if (date.slice(0, 7) === calendarState.ym) renderInputMonthList();
     });
 
     document.getElementById("rate-modal-close-btn").addEventListener("click", () => closeRateModal());
