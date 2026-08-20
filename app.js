@@ -225,6 +225,7 @@
   const monthState = { ym: currentMonthYm() };
   const calendarState = { ym: currentMonthYm(), selectedDate: todayStr(), filterCompanyId: null };
   const statsAmountView = { companies: new Set(), months: new Set() };
+  let monthAmountView = false;
   const rateModalState = { companyId: null, rateType: "daily" };
 
   function getSuggestedCompanyForDate(dateStr) {
@@ -704,8 +705,11 @@
     document.getElementById("month-label").textContent = formatMonthLabel(monthState.ym);
     const records = loadRecords().filter((r) => r.date.slice(0, 7) === monthState.ym);
     const total = records.reduce((s, r) => s + r.gongsu, 0);
-    document.getElementById("month-total").textContent = formatGongsuUnit(total);
-    renderSummaryByCompany(document.getElementById("month-company-summary"), records);
+    document.getElementById("month-total").textContent = monthAmountView ? formatWon(calcRecordsAmount(records)) : formatGongsuUnit(total);
+    const toggleBtn = document.getElementById("month-amount-toggle");
+    toggleBtn.textContent = monthAmountView ? "공수보기" : "금액보기";
+    toggleBtn.classList.toggle("active", monthAmountView);
+    renderSummaryByCompany(document.getElementById("month-company-summary"), records, { showAmountToggle: true });
     renderGroupedRecordList(document.getElementById("month-record-list"), records);
   }
 
@@ -1011,6 +1015,10 @@
 
     document.getElementById("month-prev").addEventListener("click", () => { monthState.ym = shiftMonth(monthState.ym, -1); renderMonth(); });
     document.getElementById("month-next").addEventListener("click", () => { monthState.ym = shiftMonth(monthState.ym, 1); renderMonth(); });
+    document.getElementById("month-amount-toggle").addEventListener("click", () => {
+      monthAmountView = !monthAmountView;
+      renderMonth();
+    });
 
     document.getElementById("add-company-btn").addEventListener("click", () => {
       const input = document.getElementById("new-company-name");
