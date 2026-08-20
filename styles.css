@@ -38,6 +38,15 @@
 
 * { box-sizing: border-box; }
 
+/* Long-pressing a button (calendar cells, chips, modal actions, ...) should never trigger the
+   browser's native text-selection/callout menu, since several of them use long-press for our
+   own gestures. */
+button {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
 html, body {
   margin: 0;
   padding: 0;
@@ -282,15 +291,6 @@ input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
-}
-
-.danger-btn.full {
-  width: 100%;
-  padding: 14px;
-  background: var(--danger);
-  color: #fff;
-  font-size: 16px;
-  font-weight: 700;
 }
 
 .modal-desc {
