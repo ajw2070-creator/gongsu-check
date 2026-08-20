@@ -1,4 +1,4 @@
-const CACHE_NAME = "gongsu-check-v19";
+const CACHE_NAME = "gongsu-check-v20";
 const ASSETS = [
   "./",
   "./index.html",

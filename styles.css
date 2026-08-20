@@ -38,13 +38,18 @@
 
 * { box-sizing: border-box; }
 
-/* Long-pressing a button (calendar cells, chips, modal actions, ...) should never trigger the
-   browser's native text-selection/callout menu, since several of them use long-press for our
-   own gestures. */
-button {
+/* Long-pressing anything (calendar cells especially) should never trigger the browser's native
+   text-selection/callout/"search with Google" popup, since long-press is one of our own
+   gestures throughout the app. Re-enabled specifically for actual text-entry fields below. */
+* {
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
+}
+input, textarea {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
 }
 
 html, body {
@@ -606,6 +611,12 @@ input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
   padding: 20px 16px calc(env(safe-area-inset-bottom, 0px) + 20px);
   max-height: 85vh;
   overflow-y: auto;
+}
+
+.modal-overlay.top-align { align-items: flex-start; }
+.modal-overlay.top-align .modal {
+  border-radius: 0 0 18px 18px;
+  padding: calc(env(safe-area-inset-top, 0px) + 20px) 16px 20px;
 }
 
 .modal h2 { margin: 0 0 16px; font-size: 16px; }
