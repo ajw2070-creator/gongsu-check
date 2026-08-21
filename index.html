@@ -63,6 +63,8 @@
   <section class="card">
     <div class="selected-date-heading" id="selected-date-heading"></div>
 
+    <button type="button" class="primary-btn" id="save-btn" style="margin-bottom:16px">저장</button>
+
     <div class="field">
       <label>업체</label>
       <div class="chip-row" id="company-chip-row"></div>
@@ -87,8 +89,6 @@
       <label>메모 <span class="optional">(선택)</span></label>
       <input type="text" id="input-memo" placeholder="예: 오전 반차, 특근 등" />
     </div>
-
-    <button type="button" class="primary-btn" id="save-btn">저장</button>
   </section>
 
   <section class="card">
@@ -176,6 +176,15 @@
     <div class="chip-row">
       <button type="button" class="preset-chip gongsu-step-option" data-step="0.5">0.5씩</button>
       <button type="button" class="preset-chip gongsu-step-option" data-step="1">1씩</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>기본 공수값</h2>
+    <p class="modal-desc">날짜를 선택하거나 공수 추가 팝업을 열 때 처음 표시되는 공수 값입니다.</p>
+    <div class="chip-row">
+      <button type="button" class="preset-chip default-gongsu-option" data-value="1">1</button>
+      <button type="button" class="preset-chip default-gongsu-option" data-value="1.5">1.5</button>
     </div>
   </section>
 

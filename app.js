@@ -4,7 +4,7 @@
   const STORAGE_COMPANIES = "gongsu_companies_v1";
   const STORAGE_RECORDS = "gongsu_records_v1";
   const STORAGE_SETTINGS = "gongsu_settings_v1";
-  const DEFAULT_SETTINGS = { theme: "light", gongsuStep: 0.5 };
+  const DEFAULT_SETTINGS = { theme: "light", gongsuStep: 0.5, defaultGongsu: 1 };
   const PALETTE = ["#2563eb", "#dc2626", "#16a34a", "#d97706", "#7c3aed", "#0891b2", "#db2777", "#65a30d", "#ea580c", "#4f46e5"];
   const WEEKDAY = ["일", "월", "화", "수", "목", "금", "토"];
 
@@ -115,6 +115,11 @@
   function getGongsuStep() { return loadSettings().gongsuStep; }
   function getGongsuPresetValues() {
     return getGongsuStep() === 1 ? [1, 2, 3, 4, 5, 6] : [0.5, 1, 1.5, 2, 2.5, 3];
+  }
+  function getDefaultGongsu() { return loadSettings().defaultGongsu || 1; }
+  function applyDefaultGongsu() {
+    document.getElementById("input-gongsu").value = getDefaultGongsu();
+    updateGongsuPresetHighlight("gongsu-presets", "input-gongsu");
   }
   function applyTheme() {
     document.documentElement.setAttribute("data-theme", loadSettings().theme);
@@ -734,6 +739,7 @@
     renderCalendar();
     renderSelectedDateHeading();
     refreshInputCompanyChips();
+    applyDefaultGongsu();
     renderInputMonthList();
   }
 
@@ -779,7 +785,7 @@
     dayModalState.date = dateStr;
     dayModalState.companyId = getSuggestedCompanyForDate(dateStr);
     document.getElementById("day-modal-heading").textContent = formatDateHeading(dateStr);
-    document.getElementById("day-modal-gongsu").value = 1;
+    document.getElementById("day-modal-gongsu").value = getDefaultGongsu();
     document.getElementById("day-modal-memo").value = "";
     setTripToggle("day-modal-trip-toggle", false);
     renderDayModalList();
@@ -898,6 +904,9 @@
     });
     document.querySelectorAll(".gongsu-step-option").forEach((btn) => {
       btn.classList.toggle("selected", parseFloat(btn.dataset.step) === settings.gongsuStep);
+    });
+    document.querySelectorAll(".default-gongsu-option").forEach((btn) => {
+      btn.classList.toggle("selected", parseFloat(btn.dataset.value) === settings.defaultGongsu);
     });
 
     const container = document.getElementById("settings-company-colors");
@@ -1061,6 +1070,7 @@
     applyTheme();
     renderGongsuPresets("gongsu-presets", "input-gongsu");
     refreshGongsuStepLabels();
+    applyDefaultGongsu();
     inputState.companyId = getSuggestedCompanyForDate(calendarState.selectedDate);
 
     document.addEventListener("touchstart", (e) => {
@@ -1136,6 +1146,14 @@
         saveSettings(s);
         refreshGongsuStepLabels();
         renderGongsuPresets("gongsu-presets", "input-gongsu");
+        renderSettingsTab();
+      });
+    });
+    document.querySelectorAll(".default-gongsu-option").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const s = loadSettings();
+        s.defaultGongsu = parseFloat(btn.dataset.value);
+        saveSettings(s);
         renderSettingsTab();
       });
     });
