@@ -135,12 +135,13 @@
   // Keeps (date, company) unique. If a record for that date+company already exists
   // (other than the one being edited, when id is given), the new values overwrite it
   // instead of creating a duplicate row.
-  function saveOrMergeRecord({ id, date, companyId, gongsu, memo }) {
+  function saveOrMergeRecord({ id, date, companyId, gongsu, memo, isTrip }) {
     const records = loadRecords();
     const dup = records.find((r) => r.date === date && r.companyId === companyId && r.id !== id);
     if (dup) {
       dup.gongsu = gongsu;
       dup.memo = memo;
+      dup.isTrip = !!isTrip;
       if (id) {
         const idx = records.findIndex((r) => r.id === id);
         if (idx !== -1) records.splice(idx, 1);
@@ -154,8 +155,9 @@
       rec.companyId = companyId;
       rec.gongsu = gongsu;
       rec.memo = memo;
+      rec.isTrip = !!isTrip;
     } else {
-      records.push({ id: uid(), date, companyId, gongsu, memo, createdAt: Date.now() });
+      records.push({ id: uid(), date, companyId, gongsu, memo, isTrip: !!isTrip, createdAt: Date.now() });
     }
     saveRecords(records);
     return { merged: false };
@@ -177,12 +179,18 @@
   }
   // Hourly rates are converted to a per-gongsu (per-day) amount assuming an 8-hour standard day,
   // so both rate types reduce to the same "amount per 1 공수" figure for calculations.
-  function getCompanyEffectiveDailyRate(company) {
-    if (!company || !company.rate) return 0;
+  // Trip-marked records use the company's separate 출장 rate (same rate type as the base rate)
+  // when one has been configured; otherwise they fall back to the normal rate.
+  function getCompanyEffectiveDailyRate(company, isTrip) {
+    if (!company) return 0;
+    if (isTrip && company.hasTrip && company.tripRate) {
+      return company.rateType === "hourly" ? company.tripRate * 8 : company.tripRate;
+    }
+    if (!company.rate) return 0;
     return company.rateType === "hourly" ? company.rate * 8 : company.rate;
   }
   function calcRecordsAmount(records) {
-    return records.reduce((sum, r) => sum + r.gongsu * getCompanyEffectiveDailyRate(getCompanyById(r.companyId)), 0);
+    return records.reduce((sum, r) => sum + r.gongsu * getCompanyEffectiveDailyRate(getCompanyById(r.companyId), r.isTrip), 0);
   }
   function toLocalDateStr(d) {
     const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, "0"), day = String(d.getDate()).padStart(2, "0");
@@ -270,12 +278,40 @@
       inputState.companyId = id;
       refreshInputCompanyChips();
     });
+    updateInputTripVisibility();
   }
   function refreshEditCompanyChips() {
     renderCompanyChips(document.getElementById("edit-company-chip-row"), editState.companyId, (id) => {
       editState.companyId = id;
       refreshEditCompanyChips();
     });
+    updateEditTripVisibility();
+  }
+
+  // ---------- 출장(trip) rate toggle chips (single-button toggles, not chip groups) ----------
+  function isTripToggleOn(btnId) { return document.getElementById(btnId).classList.contains("selected"); }
+  function setTripToggle(btnId, on) { document.getElementById(btnId).classList.toggle("selected", !!on); }
+  function wireTripToggle(btnId) {
+    document.getElementById(btnId).addEventListener("click", () => setTripToggle(btnId, !isTripToggleOn(btnId)));
+  }
+
+  function updateInputTripVisibility() {
+    const company = getCompanyById(inputState.companyId);
+    const show = !!(company && company.hasTrip);
+    document.getElementById("input-trip-field").style.display = show ? "" : "none";
+    if (!show) setTripToggle("input-trip-toggle", false);
+  }
+  function updateDayModalTripVisibility() {
+    const company = getCompanyById(dayModalState.companyId);
+    const show = !!(company && company.hasTrip);
+    document.getElementById("day-modal-trip-field").style.display = show ? "" : "none";
+    if (!show) setTripToggle("day-modal-trip-toggle", false);
+  }
+  function updateEditTripVisibility() {
+    const company = getCompanyById(editState.companyId);
+    const show = !!(company && company.hasTrip);
+    document.getElementById("edit-trip-field").style.display = show ? "" : "none";
+    if (!show) setTripToggle("edit-trip-toggle", false);
   }
 
   // ---------- gongsu presets ----------
@@ -323,7 +359,7 @@
     el.innerHTML = `
       <span class="record-dot" style="background:${company ? company.color : "#ccc"}"></span>
       <div class="record-main">
-        <div class="record-company">${namePart}</div>
+        <div class="record-company">${namePart}${record.isTrip ? ' <span class="trip-badge">출장</span>' : ""}</div>
         ${record.memo ? `<div class="record-memo">${escapeHtml(record.memo)}</div>` : ""}
       </div>
       <div class="record-gongsu">${formatGongsu(record.gongsu)}</div>
@@ -447,8 +483,9 @@
       const el = document.createElement("div");
       el.className = "summary-item";
       const showAmount = opts.showAmountToggle && statsAmountView.companies.has(companyId);
+      const hasRateInfo = company && (company.rate || (company.hasTrip && company.tripRate));
       const valueHtml = showAmount
-        ? (company && company.rate ? formatWon(calcRecordsAmount(companyRecords)) : "단가 미설정")
+        ? (hasRateInfo ? formatWon(calcRecordsAmount(companyRecords)) : "단가 미설정")
         : formatGongsuUnit(sum);
       el.innerHTML = `
         <span class="record-dot" style="background:${company ? company.color : "#ccc"}"></span>
@@ -708,6 +745,7 @@
       dayModalState.companyId = id;
       refreshDayModalCompanyChips();
     });
+    updateDayModalTripVisibility();
   }
 
   function renderDayModalList() {
@@ -743,6 +781,7 @@
     document.getElementById("day-modal-heading").textContent = formatDateHeading(dateStr);
     document.getElementById("day-modal-gongsu").value = 1;
     document.getElementById("day-modal-memo").value = "";
+    setTripToggle("day-modal-trip-toggle", false);
     renderDayModalList();
     refreshDayModalCompanyChips();
     renderGongsuPresets("day-modal-gongsu-presets", "day-modal-gongsu");
@@ -789,12 +828,13 @@
       const rateLabel = c.rate
         ? `${c.rateType === "hourly" ? "시급" : "일급"} ${formatWon(c.rate)}`
         : "단가 미설정";
+      const tripLabel = c.hasTrip && c.tripRate ? ` · 출장 ${formatWon(c.tripRate)}` : "";
       el.innerHTML = `
         <div class="manage-item-top">
           <span class="record-dot" style="background:${c.color}"></span>
           <span class="manage-name">${escapeHtml(c.name)}</span>
         </div>
-        <div class="manage-item-rate">${rateLabel}</div>
+        <div class="manage-item-rate">${rateLabel}${tripLabel}</div>
         <div class="manage-item-actions">
           <button type="button" class="manage-btn" data-action="rate">단가 설정</button>
           <button type="button" class="manage-btn" data-action="rename">이름변경</button>
@@ -837,6 +877,9 @@
     rateModalState.rateType = company.rateType === "hourly" ? "hourly" : "daily";
     document.getElementById("rate-modal-company-name").textContent = company.name;
     document.getElementById("rate-amount-input").value = company.rate || "";
+    setTripToggle("rate-trip-toggle", !!company.hasTrip);
+    document.getElementById("rate-trip-amount-input").value = company.tripRate || "";
+    document.getElementById("rate-trip-amount-field").style.display = company.hasTrip ? "" : "none";
     refreshRateTypeOptions();
     document.getElementById("rate-modal").classList.add("active");
     pushModalState(() => closeRateModal(true));
@@ -947,6 +990,8 @@
     document.getElementById("edit-gongsu").value = record.gongsu;
     document.getElementById("edit-memo").value = record.memo || "";
     refreshEditCompanyChips();
+    const company = getCompanyById(record.companyId);
+    if (company && company.hasTrip) setTripToggle("edit-trip-toggle", !!record.isTrip);
     document.getElementById("edit-modal").classList.add("active");
     if (opts.replace) replaceModalState(() => closeEditModal(true));
     else pushModalState(() => closeEditModal(true));
@@ -1051,6 +1096,10 @@
       });
     });
 
+    wireTripToggle("input-trip-toggle");
+    wireTripToggle("day-modal-trip-toggle");
+    wireTripToggle("edit-trip-toggle");
+
     document.getElementById("cal-prev").addEventListener("click", () => { calendarState.ym = shiftMonth(calendarState.ym, -1); renderCalendar(); });
     document.getElementById("cal-next").addEventListener("click", () => { calendarState.ym = shiftMonth(calendarState.ym, 1); renderCalendar(); });
 
@@ -1062,10 +1111,12 @@
       const date = calendarState.selectedDate;
       const gongsu = parseFloat(document.getElementById("input-gongsu").value);
       const memo = document.getElementById("input-memo").value.trim();
+      const isTrip = isTripToggleOn("input-trip-toggle");
       if (!inputState.companyId) return toast("업체를 선택하세요");
       if (!gongsu || gongsu <= 0) return toast("공수를 입력하세요");
-      const { merged } = saveOrMergeRecord({ date, companyId: inputState.companyId, gongsu, memo });
+      const { merged } = saveOrMergeRecord({ date, companyId: inputState.companyId, gongsu, memo, isTrip });
       document.getElementById("input-memo").value = "";
+      setTripToggle("input-trip-toggle", false);
       toast(merged ? "기존 기록을 수정했습니다" : "저장했습니다");
       renderCalendar();
       renderInputMonthList();
@@ -1097,10 +1148,11 @@
       const date = document.getElementById("edit-date").value;
       const gongsu = parseFloat(document.getElementById("edit-gongsu").value);
       const memo = document.getElementById("edit-memo").value.trim();
+      const isTrip = isTripToggleOn("edit-trip-toggle");
       if (!date) return toast("날짜를 선택하세요");
       if (!editState.companyId) return toast("업체를 선택하세요");
       if (!gongsu || gongsu <= 0) return toast("공수를 입력하세요");
-      const { merged } = saveOrMergeRecord({ id: editState.id, date, companyId: editState.companyId, gongsu, memo });
+      const { merged } = saveOrMergeRecord({ id: editState.id, date, companyId: editState.companyId, gongsu, memo, isTrip });
       closeEditModal();
       toast(merged ? "같은 날짜·업체 기록에 합쳐서 수정했습니다" : "수정했습니다");
       renderCurrentView();
@@ -1124,10 +1176,12 @@
     document.getElementById("day-modal-add-btn").addEventListener("click", () => {
       const gongsu = parseFloat(document.getElementById("day-modal-gongsu").value);
       const memo = document.getElementById("day-modal-memo").value.trim();
+      const isTrip = isTripToggleOn("day-modal-trip-toggle");
       if (!dayModalState.companyId) return toast("업체를 선택하세요");
       if (!gongsu || gongsu <= 0) return toast("공수를 입력하세요");
-      const { merged } = saveOrMergeRecord({ date: dayModalState.date, companyId: dayModalState.companyId, gongsu, memo });
+      const { merged } = saveOrMergeRecord({ date: dayModalState.date, companyId: dayModalState.companyId, gongsu, memo, isTrip });
       document.getElementById("day-modal-memo").value = "";
+      setTripToggle("day-modal-trip-toggle", false);
       toast(merged ? "기존 기록을 수정했습니다" : "저장했습니다");
       renderDayModalList();
       renderCalendar();
@@ -1158,6 +1212,11 @@
         refreshRateTypeOptions();
       });
     });
+    document.getElementById("rate-trip-toggle").addEventListener("click", () => {
+      const on = !isTripToggleOn("rate-trip-toggle");
+      setTripToggle("rate-trip-toggle", on);
+      document.getElementById("rate-trip-amount-field").style.display = on ? "" : "none";
+    });
     document.getElementById("rate-save-btn").addEventListener("click", () => {
       const companies = loadCompanies();
       const company = companies.find((c) => c.id === rateModalState.companyId);
@@ -1166,6 +1225,17 @@
       if (!amount || amount <= 0) return toast("단가를 입력하세요");
       company.rateType = rateModalState.rateType;
       company.rate = Math.round(amount);
+
+      if (isTripToggleOn("rate-trip-toggle")) {
+        const tripAmount = parseFloat(document.getElementById("rate-trip-amount-input").value);
+        if (!tripAmount || tripAmount <= 0) return toast("출장 단가를 입력하세요");
+        company.hasTrip = true;
+        company.tripRate = Math.round(tripAmount);
+      } else {
+        company.hasTrip = false;
+        company.tripRate = null;
+      }
+
       saveCompanies(companies);
       closeRateModal();
       toast("단가를 저장했습니다");

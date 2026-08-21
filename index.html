@@ -78,6 +78,11 @@
       <div class="preset-row" id="gongsu-presets"></div>
     </div>
 
+    <div class="field" id="input-trip-field" style="display:none">
+      <label>출장 <span class="optional">(출장 단가 적용)</span></label>
+      <button type="button" class="preset-chip trip-toggle-btn" id="input-trip-toggle">출장으로 표시</button>
+    </div>
+
     <div class="field">
       <label>메모 <span class="optional">(선택)</span></label>
       <input type="text" id="input-memo" placeholder="예: 오전 반차, 특근 등" />
@@ -237,6 +242,13 @@
   </section>
 
   <section class="card">
+    <h2>출장 단가</h2>
+    <div class="guide-item">
+      <div class="guide-item-desc">업체관리 탭의 단가 설정에서 "출장 단가 사용"을 켜고 출장 단가를 입력해두면, 입력 화면·날짜 팝업·수정 화면에 "출장으로 표시" 버튼이 나타납니다. 이 버튼을 켠 채로 저장한 날은 평소 단가 대신 출장 단가로 금액이 계산되어 업체별·월별 합산에 자동 반영됩니다.</div>
+    </div>
+  </section>
+
+  <section class="card">
     <h2>설정</h2>
     <div class="guide-item">
       <div class="guide-item-desc">좌측 상단 ☰ 메뉴의 "설정"에서 다크모드와 공수 증감 단위(0.5 / 1)를 바꿀 수 있습니다.</div>
@@ -282,6 +294,10 @@
         <button type="button" class="step-btn gongsu-step-plus" id="edit-gongsu-plus">+0.5</button>
       </div>
     </div>
+    <div class="field" id="edit-trip-field" style="display:none">
+      <label>출장 <span class="optional">(출장 단가 적용)</span></label>
+      <button type="button" class="preset-chip trip-toggle-btn" id="edit-trip-toggle">출장으로 표시</button>
+    </div>
     <div class="field">
       <label>메모</label>
       <input type="text" id="edit-memo" />
@@ -320,6 +336,11 @@
         <button type="button" class="step-btn gongsu-step-plus" id="day-modal-gongsu-plus">+0.5</button>
       </div>
       <div class="preset-row" id="day-modal-gongsu-presets"></div>
+    </div>
+
+    <div class="field" id="day-modal-trip-field" style="display:none">
+      <label>출장 <span class="optional">(출장 단가 적용)</span></label>
+      <button type="button" class="preset-chip trip-toggle-btn" id="day-modal-trip-toggle">출장으로 표시</button>
     </div>
 
     <div class="field">
@@ -367,6 +388,16 @@
     <div class="field">
       <label>단가 <span class="optional">(원)</span></label>
       <input type="number" id="rate-amount-input" min="0" step="1000" inputmode="numeric" placeholder="예: 150000" />
+    </div>
+
+    <div class="field">
+      <label>출장</label>
+      <button type="button" class="preset-chip trip-toggle-btn" id="rate-trip-toggle">출장 단가 사용</button>
+    </div>
+
+    <div class="field" id="rate-trip-amount-field" style="display:none">
+      <label>출장 단가 <span class="optional">(원)</span></label>
+      <input type="number" id="rate-trip-amount-input" min="0" step="1000" inputmode="numeric" placeholder="예: 200000" />
     </div>
 
     <button type="button" class="primary-btn" id="rate-save-btn">저장</button>
