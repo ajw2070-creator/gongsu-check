@@ -286,6 +286,8 @@ input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
   white-space: nowrap;
 }
 
+.ghost-btn.full { width: 100%; text-align: center; }
+
 .danger-btn {
   padding: 11px 16px;
   border-radius: 10px;

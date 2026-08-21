@@ -183,6 +183,14 @@
     <h2>업체별 색상</h2>
     <div id="settings-company-colors" class="manage-list"></div>
   </section>
+
+  <section class="card">
+    <h2>데이터 백업</h2>
+    <p class="modal-desc">모든 업체·단가·공수 기록을 파일로 저장하거나, 저장해둔 파일에서 복원할 수 있습니다.</p>
+    <button type="button" class="primary-btn" id="export-data-btn">데이터 내보내기</button>
+    <button type="button" class="ghost-btn full" id="import-data-btn" style="margin-top:8px">데이터 가져오기</button>
+    <input type="file" id="import-data-input" accept="application/json" style="display:none" />
+  </section>
 </main>
 
 <main id="view-guide" class="view">
@@ -252,6 +260,13 @@
     <h2>설정</h2>
     <div class="guide-item">
       <div class="guide-item-desc">좌측 상단 ☰ 메뉴의 "설정"에서 다크모드와 공수 증감 단위(0.5 / 1)를 바꿀 수 있습니다.</div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>데이터 백업</h2>
+    <div class="guide-item">
+      <div class="guide-item-desc">설정 탭 하단의 "데이터 내보내기"를 누르면 모든 기록이 파일로 저장됩니다. 이 파일을 카톡·이메일·구글드라이브 등에 보관해두면, 앱을 다시 설치했거나 데이터가 사라졌을 때 "데이터 가져오기"로 그대로 복원할 수 있습니다.</div>
     </div>
   </section>
 </main>

@@ -924,6 +924,50 @@
     });
   }
 
+  // ---------- data backup / restore ----------
+  function exportAllData() {
+    const payload = {
+      app: "gongsu-check",
+      version: 1,
+      exportedAt: Date.now(),
+      companies: loadCompanies(),
+      records: loadRecords(),
+      settings: loadSettings(),
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `공수체크_백업_${todayStr()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    toast("백업 파일을 저장했습니다");
+  }
+
+  function importAllData(file) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      let data;
+      try { data = JSON.parse(reader.result); }
+      catch (e) { return toast("올바른 백업 파일이 아닙니다"); }
+      if (!Array.isArray(data.companies) || !Array.isArray(data.records)) {
+        return toast("올바른 백업 파일이 아닙니다");
+      }
+      if (!confirm("현재 기기의 모든 데이터를 이 백업 파일 내용으로 덮어씁니다. 계속할까요?")) return;
+      saveCompanies(data.companies);
+      saveRecords(data.records);
+      if (data.settings) saveSettings(Object.assign({}, DEFAULT_SETTINGS, data.settings));
+      applyTheme();
+      refreshGongsuStepLabels();
+      renderGongsuPresets("gongsu-presets", "input-gongsu");
+      toast("복원했습니다");
+      renderCurrentView();
+    };
+    reader.readAsText(file);
+  }
+
   function renderCurrentView() {
     if (currentView === "input") {
       renderCalendar();
@@ -1094,6 +1138,14 @@
         renderGongsuPresets("gongsu-presets", "input-gongsu");
         renderSettingsTab();
       });
+    });
+
+    document.getElementById("export-data-btn").addEventListener("click", exportAllData);
+    document.getElementById("import-data-btn").addEventListener("click", () => document.getElementById("import-data-input").click());
+    document.getElementById("import-data-input").addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (file) importAllData(file);
+      e.target.value = "";
     });
 
     wireTripToggle("input-trip-toggle");
