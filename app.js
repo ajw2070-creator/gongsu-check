@@ -320,6 +320,15 @@
   }
 
   // ---------- gongsu presets ----------
+  function promptSetDefaultGongsu(value) {
+    if (!confirm(`${formatGongsu(value)}을(를) 공수 기본값으로 하시겠습니까?`)) return;
+    const s = loadSettings();
+    s.defaultGongsu = value;
+    saveSettings(s);
+    toast("기본값으로 설정했습니다");
+    if (currentView === "settings") renderSettingsTab();
+  }
+
   function renderGongsuPresets(containerId, inputId) {
     const container = document.getElementById(containerId);
     container.innerHTML = "";
@@ -328,10 +337,34 @@
       btn.type = "button";
       btn.className = "preset-chip";
       btn.textContent = formatGongsu(v);
-      btn.addEventListener("click", () => {
+
+      let timer = null, startX = 0, startY = 0, justLongPressed = false;
+      btn.addEventListener("touchstart", (e) => {
+        if (e.touches.length !== 1) return;
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+        timer = setTimeout(() => {
+          timer = null;
+          justLongPressed = true;
+          promptSetDefaultGongsu(v);
+        }, 500);
+      }, { passive: true });
+      btn.addEventListener("touchmove", (e) => {
+        if (!timer) return;
+        const dx = e.touches[0].clientX - startX;
+        const dy = e.touches[0].clientY - startY;
+        if (Math.abs(dx) > 10 || Math.abs(dy) > 10) { clearTimeout(timer); timer = null; }
+      }, { passive: true });
+      btn.addEventListener("touchend", (e) => {
+        if (timer) { clearTimeout(timer); timer = null; }
+        if (justLongPressed) e.preventDefault();
+      });
+      btn.addEventListener("click", (e) => {
+        if (justLongPressed) { justLongPressed = false; e.preventDefault(); return; }
         document.getElementById(inputId).value = v;
         updateGongsuPresetHighlight(containerId, inputId);
       });
+
       container.appendChild(btn);
     });
     updateGongsuPresetHighlight(containerId, inputId);
