@@ -182,6 +182,19 @@
   function formatWon(n) {
     return Math.round(n).toLocaleString("ko-KR") + "원";
   }
+  const FREELANCER_WITHHOLDING_RATE = 0.033; // 프리랜서 사업소득 원천징수 3.3% (소득세 3% + 지방소득세 0.3%)
+  const VAT_RATE = 0.1; // 부가가치세 10%
+  // For companies with a payday configured, returns what actually lands on payday for a
+  // given gross (pre-tax) amount: freelancers get it net of 3.3% withholding, while sole
+  // proprietors invoice the gross as 공급가액 and receive it plus 10% VAT on top.
+  function calcPaydayAmount(company, grossAmount) {
+    if (company.taxType === "business") {
+      const vat = grossAmount * VAT_RATE;
+      return { total: grossAmount + vat, principal: grossAmount, vat };
+    }
+    const withheld = grossAmount * FREELANCER_WITHHOLDING_RATE;
+    return { total: grossAmount - withheld, principal: grossAmount, withheld };
+  }
   // Hourly rates are converted to a per-gongsu (per-day) amount assuming an 8-hour standard day,
   // so both rate types reduce to the same "amount per 1 공수" figure for calculations.
   // Trip-marked records use the company's separate 출장 rate (same rate type as the base rate)
@@ -240,6 +253,7 @@
   const statsAmountView = { companies: new Set(), months: new Set() };
   let monthAmountView = false;
   const rateModalState = { companyId: null, rateType: "daily" };
+  const paydayModalState = { companyId: null, taxType: "freelancer" };
 
   function getSuggestedCompanyForDate(dateStr) {
     const records = loadRecords();
@@ -293,30 +307,30 @@
     updateEditTripVisibility();
   }
 
-  // ---------- 출장(trip) rate toggle chips (single-button toggles, not chip groups) ----------
-  function isTripToggleOn(btnId) { return document.getElementById(btnId).classList.contains("selected"); }
-  function setTripToggle(btnId, on) { document.getElementById(btnId).classList.toggle("selected", !!on); }
-  function wireTripToggle(btnId) {
-    document.getElementById(btnId).addEventListener("click", () => setTripToggle(btnId, !isTripToggleOn(btnId)));
+  // ---------- generic single-button toggle chips (trip, payday, etc.) ----------
+  function isToggleOn(btnId) { return document.getElementById(btnId).classList.contains("selected"); }
+  function setToggle(btnId, on) { document.getElementById(btnId).classList.toggle("selected", !!on); }
+  function wireToggle(btnId) {
+    document.getElementById(btnId).addEventListener("click", () => setToggle(btnId, !isToggleOn(btnId)));
   }
 
   function updateInputTripVisibility() {
     const company = getCompanyById(inputState.companyId);
     const show = !!(company && company.hasTrip);
     document.getElementById("input-trip-field").style.display = show ? "" : "none";
-    if (!show) setTripToggle("input-trip-toggle", false);
+    if (!show) setToggle("input-trip-toggle", false);
   }
   function updateDayModalTripVisibility() {
     const company = getCompanyById(dayModalState.companyId);
     const show = !!(company && company.hasTrip);
     document.getElementById("day-modal-trip-field").style.display = show ? "" : "none";
-    if (!show) setTripToggle("day-modal-trip-toggle", false);
+    if (!show) setToggle("day-modal-trip-toggle", false);
   }
   function updateEditTripVisibility() {
     const company = getCompanyById(editState.companyId);
     const show = !!(company && company.hasTrip);
     document.getElementById("edit-trip-field").style.display = show ? "" : "none";
-    if (!show) setTripToggle("edit-trip-toggle", false);
+    if (!show) setToggle("edit-trip-toggle", false);
   }
 
   // ---------- gongsu presets ----------
@@ -522,15 +536,30 @@
       el.className = "summary-item";
       const showAmount = opts.showAmountToggle && statsAmountView.companies.has(companyId);
       const hasRateInfo = company && (company.rate || (company.hasTrip && company.tripRate));
-      const valueHtml = showAmount
-        ? (hasRateInfo ? formatWon(calcRecordsAmount(companyRecords)) : "단가 미설정")
-        : formatGongsuUnit(sum);
+      const usePayday = opts.showPayday && company && company.paydayEnabled && hasRateInfo;
+      let valueHtml = formatGongsuUnit(sum);
+      let subHtml = "";
+      if (showAmount) {
+        if (!hasRateInfo) {
+          valueHtml = "단가 미설정";
+        } else if (usePayday) {
+          const grossAmount = calcRecordsAmount(companyRecords);
+          const { total, principal, vat, withheld } = calcPaydayAmount(company, grossAmount);
+          valueHtml = formatWon(total);
+          subHtml = company.taxType === "business"
+            ? `<div class="summary-subline">매달 ${company.payday}일 입금 예정 · 원금 ${formatWon(principal)} + 부가세 ${formatWon(vat)}</div>`
+            : `<div class="summary-subline">매달 ${company.payday}일 입금 예정 · 세전 ${formatWon(principal)} − 3.3% 원천징수 ${formatWon(withheld)}</div>`;
+        } else {
+          valueHtml = formatWon(calcRecordsAmount(companyRecords));
+        }
+      }
       el.innerHTML = `
         <span class="record-dot" style="background:${company ? company.color : "#ccc"}"></span>
         <span class="summary-name">${company ? escapeHtml(company.name) : "(삭제된 업체)"}</span>
         <span class="summary-count">${count}건</span>
         <span class="summary-value">${valueHtml}</span>
         ${opts.showAmountToggle ? `<button type="button" class="summary-amount-btn${showAmount ? " active" : ""}">${showAmount ? "공수보기" : "금액보기"}</button>` : ""}
+        ${subHtml}
       `;
       if (opts.showAmountToggle) {
         el.querySelector(".summary-amount-btn").addEventListener("click", (e) => {
@@ -820,7 +849,7 @@
     document.getElementById("day-modal-heading").textContent = formatDateHeading(dateStr);
     document.getElementById("day-modal-gongsu").value = getDefaultGongsu();
     document.getElementById("day-modal-memo").value = "";
-    setTripToggle("day-modal-trip-toggle", false);
+    setToggle("day-modal-trip-toggle", false);
     renderDayModalList();
     refreshDayModalCompanyChips();
     renderGongsuPresets("day-modal-gongsu-presets", "day-modal-gongsu");
@@ -841,7 +870,7 @@
     const toggleBtn = document.getElementById("month-amount-toggle");
     toggleBtn.textContent = monthAmountView ? "공수보기" : "금액보기";
     toggleBtn.classList.toggle("active", monthAmountView);
-    renderSummaryByCompany(document.getElementById("month-company-summary"), records, { showAmountToggle: true });
+    renderSummaryByCompany(document.getElementById("month-company-summary"), records, { showAmountToggle: true, showPayday: true });
     renderGroupedRecordList(document.getElementById("month-record-list"), records);
   }
 
@@ -868,19 +897,25 @@
         ? `${c.rateType === "hourly" ? "시급" : "일급"} ${formatWon(c.rate)}`
         : "단가 미설정";
       const tripLabel = c.hasTrip && c.tripRate ? ` · 출장 ${formatWon(c.tripRate)}` : "";
+      const paydayLabel = c.paydayEnabled
+        ? `<div class="manage-item-rate">매달 ${c.payday}일 입금 · ${c.taxType === "business" ? "개인사업자 (부가세 별도)" : "프리랜서 (3.3% 원천징수)"}</div>`
+        : "";
       el.innerHTML = `
         <div class="manage-item-top">
           <span class="record-dot" style="background:${c.color}"></span>
           <span class="manage-name">${escapeHtml(c.name)}</span>
         </div>
         <div class="manage-item-rate">${rateLabel}${tripLabel}</div>
+        ${paydayLabel}
         <div class="manage-item-actions">
           <button type="button" class="manage-btn" data-action="rate">단가 설정</button>
+          <button type="button" class="manage-btn" data-action="payday">월급날 설정</button>
           <button type="button" class="manage-btn" data-action="rename">이름변경</button>
           <button type="button" class="manage-btn danger" data-action="delete">삭제</button>
         </div>
       `;
       el.querySelector('[data-action="rate"]').addEventListener("click", () => openRateModal(c.id));
+      el.querySelector('[data-action="payday"]').addEventListener("click", () => openPaydayModal(c.id));
       el.querySelector('[data-action="rename"]').addEventListener("click", () => {
         const name = prompt("새 업체명을 입력하세요", c.name);
         if (!name || !name.trim()) return;
@@ -916,7 +951,7 @@
     rateModalState.rateType = company.rateType === "hourly" ? "hourly" : "daily";
     document.getElementById("rate-modal-company-name").textContent = company.name;
     document.getElementById("rate-amount-input").value = company.rate || "";
-    setTripToggle("rate-trip-toggle", !!company.hasTrip);
+    setToggle("rate-trip-toggle", !!company.hasTrip);
     document.getElementById("rate-trip-amount-input").value = company.tripRate || "";
     document.getElementById("rate-trip-amount-field").style.display = company.hasTrip ? "" : "none";
     refreshRateTypeOptions();
@@ -928,6 +963,61 @@
     document.getElementById("rate-modal").classList.remove("active");
     rateModalState.companyId = null;
     if (!fromPopstate) popModalState();
+  }
+
+  // ---------- payday / tax-type modal (company management) ----------
+  function refreshPaydayTypeOptions() {
+    document.querySelectorAll(".payday-type-option").forEach((btn) => {
+      btn.classList.toggle("selected", btn.dataset.type === paydayModalState.taxType);
+    });
+  }
+
+  function openPaydayModal(companyId) {
+    const company = getCompanyById(companyId);
+    if (!company) return;
+    paydayModalState.companyId = companyId;
+    paydayModalState.taxType = company.taxType === "business" ? "business" : "freelancer";
+    document.getElementById("payday-modal-company-name").textContent = company.name;
+    setToggle("payday-toggle", !!company.paydayEnabled);
+    document.getElementById("payday-day-input").value = company.payday || "";
+    document.getElementById("payday-day-field").style.display = company.paydayEnabled ? "" : "none";
+    document.getElementById("payday-type-field").style.display = company.paydayEnabled ? "" : "none";
+    refreshPaydayTypeOptions();
+    document.getElementById("payday-modal").classList.add("active");
+    pushModalState(() => closePaydayModal(true));
+  }
+
+  function closePaydayModal(fromPopstate) {
+    document.getElementById("payday-modal").classList.remove("active");
+    paydayModalState.companyId = null;
+    if (!fromPopstate) popModalState();
+  }
+
+  // ---------- month-end invoice reminder (개인사업자 계산서 발행) ----------
+  function closeInvoiceReminderModal(fromPopstate) {
+    document.getElementById("invoice-reminder-modal").classList.remove("active");
+    if (!fromPopstate) popModalState();
+  }
+
+  function checkInvoiceReminder() {
+    const today = todayStr();
+    const [y, m] = today.split("-").map(Number);
+    const lastDayOfMonth = new Date(y, m, 0).getDate();
+    if (parseInt(today.slice(8, 10), 10) !== lastDayOfMonth) return;
+
+    const settings = loadSettings();
+    if (settings.lastInvoiceReminderDate === today) return;
+
+    const businessCompanies = loadCompanies().filter((c) => c.paydayEnabled && c.taxType === "business");
+    if (businessCompanies.length === 0) return;
+
+    const names = businessCompanies.map((c) => c.name).join(", ");
+    document.getElementById("invoice-reminder-desc").textContent = `${names} 업체는 이번 달 계산서 발행을 잊지 마세요!`;
+    document.getElementById("invoice-reminder-modal").classList.add("active");
+    pushModalState(() => closeInvoiceReminderModal(true));
+
+    settings.lastInvoiceReminderDate = today;
+    saveSettings(settings);
   }
 
   function renderSettingsTab() {
@@ -1077,7 +1167,7 @@
     document.getElementById("edit-memo").value = record.memo || "";
     refreshEditCompanyChips();
     const company = getCompanyById(record.companyId);
-    if (company && company.hasTrip) setTripToggle("edit-trip-toggle", !!record.isTrip);
+    if (company && company.hasTrip) setToggle("edit-trip-toggle", !!record.isTrip);
     document.getElementById("edit-modal").classList.add("active");
     if (opts.replace) replaceModalState(() => closeEditModal(true));
     else pushModalState(() => closeEditModal(true));
@@ -1199,9 +1289,9 @@
       e.target.value = "";
     });
 
-    wireTripToggle("input-trip-toggle");
-    wireTripToggle("day-modal-trip-toggle");
-    wireTripToggle("edit-trip-toggle");
+    wireToggle("input-trip-toggle");
+    wireToggle("day-modal-trip-toggle");
+    wireToggle("edit-trip-toggle");
 
     document.getElementById("cal-prev").addEventListener("click", () => { calendarState.ym = shiftMonth(calendarState.ym, -1); renderCalendar(); });
     document.getElementById("cal-next").addEventListener("click", () => { calendarState.ym = shiftMonth(calendarState.ym, 1); renderCalendar(); });
@@ -1214,12 +1304,12 @@
       const date = calendarState.selectedDate;
       const gongsu = parseFloat(document.getElementById("input-gongsu").value);
       const memo = document.getElementById("input-memo").value.trim();
-      const isTrip = isTripToggleOn("input-trip-toggle");
+      const isTrip = isToggleOn("input-trip-toggle");
       if (!inputState.companyId) return toast("업체를 선택하세요");
       if (!gongsu || gongsu <= 0) return toast("공수를 입력하세요");
       const { merged } = saveOrMergeRecord({ date, companyId: inputState.companyId, gongsu, memo, isTrip });
       document.getElementById("input-memo").value = "";
-      setTripToggle("input-trip-toggle", false);
+      setToggle("input-trip-toggle", false);
       toast(merged ? "기존 기록을 수정했습니다" : "저장했습니다");
       renderCalendar();
       renderInputMonthList();
@@ -1251,7 +1341,7 @@
       const date = document.getElementById("edit-date").value;
       const gongsu = parseFloat(document.getElementById("edit-gongsu").value);
       const memo = document.getElementById("edit-memo").value.trim();
-      const isTrip = isTripToggleOn("edit-trip-toggle");
+      const isTrip = isToggleOn("edit-trip-toggle");
       if (!date) return toast("날짜를 선택하세요");
       if (!editState.companyId) return toast("업체를 선택하세요");
       if (!gongsu || gongsu <= 0) return toast("공수를 입력하세요");
@@ -1279,12 +1369,12 @@
     document.getElementById("day-modal-add-btn").addEventListener("click", () => {
       const gongsu = parseFloat(document.getElementById("day-modal-gongsu").value);
       const memo = document.getElementById("day-modal-memo").value.trim();
-      const isTrip = isTripToggleOn("day-modal-trip-toggle");
+      const isTrip = isToggleOn("day-modal-trip-toggle");
       if (!dayModalState.companyId) return toast("업체를 선택하세요");
       if (!gongsu || gongsu <= 0) return toast("공수를 입력하세요");
       const { merged } = saveOrMergeRecord({ date: dayModalState.date, companyId: dayModalState.companyId, gongsu, memo, isTrip });
       document.getElementById("day-modal-memo").value = "";
-      setTripToggle("day-modal-trip-toggle", false);
+      setToggle("day-modal-trip-toggle", false);
       toast(merged ? "기존 기록을 수정했습니다" : "저장했습니다");
       renderDayModalList();
       renderCalendar();
@@ -1316,8 +1406,8 @@
       });
     });
     document.getElementById("rate-trip-toggle").addEventListener("click", () => {
-      const on = !isTripToggleOn("rate-trip-toggle");
-      setTripToggle("rate-trip-toggle", on);
+      const on = !isToggleOn("rate-trip-toggle");
+      setToggle("rate-trip-toggle", on);
       document.getElementById("rate-trip-amount-field").style.display = on ? "" : "none";
     });
     document.getElementById("rate-save-btn").addEventListener("click", () => {
@@ -1329,7 +1419,7 @@
       company.rateType = rateModalState.rateType;
       company.rate = Math.round(amount);
 
-      if (isTripToggleOn("rate-trip-toggle")) {
+      if (isToggleOn("rate-trip-toggle")) {
         const tripAmount = parseFloat(document.getElementById("rate-trip-amount-input").value);
         if (!tripAmount || tripAmount <= 0) return toast("출장 단가를 입력하세요");
         company.hasTrip = true;
@@ -1345,7 +1435,52 @@
       renderCompaniesTab();
     });
 
+    document.getElementById("payday-modal-close-btn").addEventListener("click", () => closePaydayModal());
+    document.getElementById("payday-modal").addEventListener("click", (e) => {
+      if (e.target.id === "payday-modal") closePaydayModal();
+    });
+    document.getElementById("payday-toggle").addEventListener("click", () => {
+      const on = !isToggleOn("payday-toggle");
+      setToggle("payday-toggle", on);
+      document.getElementById("payday-day-field").style.display = on ? "" : "none";
+      document.getElementById("payday-type-field").style.display = on ? "" : "none";
+    });
+    document.querySelectorAll(".payday-type-option").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        paydayModalState.taxType = btn.dataset.type;
+        refreshPaydayTypeOptions();
+      });
+    });
+    document.getElementById("payday-save-btn").addEventListener("click", () => {
+      const companies = loadCompanies();
+      const company = companies.find((c) => c.id === paydayModalState.companyId);
+      if (!company) return closePaydayModal();
+
+      if (isToggleOn("payday-toggle")) {
+        const day = parseInt(document.getElementById("payday-day-input").value, 10);
+        if (!day || day < 1 || day > 31) return toast("월급날을 1~31 사이로 입력하세요");
+        company.paydayEnabled = true;
+        company.payday = day;
+        company.taxType = paydayModalState.taxType;
+      } else {
+        company.paydayEnabled = false;
+        company.payday = null;
+        company.taxType = null;
+      }
+
+      saveCompanies(companies);
+      closePaydayModal();
+      toast("월급날 설정을 저장했습니다");
+      renderCompaniesTab();
+    });
+
+    document.getElementById("invoice-reminder-close-btn").addEventListener("click", () => closeInvoiceReminderModal());
+    document.getElementById("invoice-reminder-modal").addEventListener("click", (e) => {
+      if (e.target.id === "invoice-reminder-modal") closeInvoiceReminderModal();
+    });
+
     switchView("input");
+    checkInvoiceReminder();
 
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("sw.js").catch(() => {});
