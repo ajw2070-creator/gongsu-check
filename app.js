@@ -355,6 +355,10 @@
       let timer = null, startX = 0, startY = 0, justLongPressed = false;
       btn.addEventListener("touchstart", (e) => {
         if (e.touches.length !== 1) return;
+        // The confirm() dialog below can swallow this touch's touchend/click (native dialogs
+        // often interrupt the page's touch sequence), which would otherwise leave
+        // justLongPressed stuck true and wrongly suppress the *next* short tap on this chip.
+        justLongPressed = false;
         startX = e.touches[0].clientX;
         startY = e.touches[0].clientY;
         timer = setTimeout(() => {
