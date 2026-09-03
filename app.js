@@ -252,6 +252,7 @@
   const calendarState = { ym: currentMonthYm(), selectedDate: todayStr(), filterCompanyId: null };
   const statsAmountView = { companies: new Set(), months: new Set() };
   let monthAmountView = false;
+  let inputSummaryAmountView = false;
   const rateModalState = { companyId: null, rateType: "daily" };
   const paydayModalState = { companyId: null, taxType: "freelancer" };
 
@@ -798,10 +799,14 @@
     const scopeLabel = filterCompany ? filterCompany.name : "전체";
     const records = loadRecords().filter((r) => r.date.slice(0, 7) === currentMonthYm() && (!filterCompanyId || r.companyId === filterCompanyId));
     const sum = records.reduce((s, r) => s + r.gongsu, 0);
-    const amount = calcRecordsAmount(records);
+
     document.getElementById("input-summary-total-label").textContent = `이번 달 · ${scopeLabel}`;
-    document.getElementById("input-summary-total-value").textContent = formatGongsu(sum);
-    document.getElementById("input-summary-total-sub").textContent = amount > 0 ? `공수 · ${formatWon(amount)}` : "공수";
+    document.getElementById("input-summary-total-value").textContent = inputSummaryAmountView
+      ? formatWon(calcRecordsAmount(records))
+      : formatGongsuUnit(sum);
+    const toggleBtn = document.getElementById("input-summary-amount-toggle");
+    toggleBtn.textContent = inputSummaryAmountView ? "공수보기" : "금액보기";
+    toggleBtn.classList.toggle("active", inputSummaryAmountView);
 
     const entryCompany = getCompanyById(inputState.companyId);
     document.getElementById("input-summary-company-name").textContent = entryCompany ? entryCompany.name : "업체 없음";
@@ -1334,6 +1339,10 @@
     document.getElementById("month-amount-toggle").addEventListener("click", () => {
       monthAmountView = !monthAmountView;
       renderMonth();
+    });
+    document.getElementById("input-summary-amount-toggle").addEventListener("click", () => {
+      inputSummaryAmountView = !inputSummaryAmountView;
+      renderInputSummary();
     });
 
     document.getElementById("add-company-btn").addEventListener("click", () => {
