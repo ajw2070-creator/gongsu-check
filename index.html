@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#2563eb" />
+<meta name="theme-color" content="#f5f1e6" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -12,6 +12,7 @@
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
 <link rel="icon" href="icons/icon-192.png" />
 <title>공수체크</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@700;800&family=Sora:wght@400;500;600;700;800&display=swap" />
 <link rel="stylesheet" href="styles.css" />
 <script>
   try {
@@ -46,6 +47,21 @@
 </div>
 
 <main id="view-input" class="view active">
+  <div class="input-summary-row">
+    <div class="input-summary-total">
+      <span class="input-summary-total-label" id="input-summary-total-label">이번 달</span>
+      <span class="input-summary-total-value" id="input-summary-total-value">0</span>
+      <span class="input-summary-total-sub" id="input-summary-total-sub">공수</span>
+    </div>
+    <div class="input-summary-company">
+      <span class="input-summary-company-label">업체</span>
+      <div class="input-summary-company-row">
+        <span class="input-summary-company-name" id="input-summary-company-name"></span>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+    </div>
+  </div>
+
   <section class="card calendar-card">
     <div class="month-nav">
       <button type="button" class="step-btn" id="cal-prev">‹</button>
@@ -90,14 +106,6 @@
       <input type="text" id="input-memo" placeholder="예: 오전 반차, 특근 등" />
       <p class="gongsu-hint">공수 아래 숫자를 길게 누르면 그 값을 기본값으로 지정할 수 있어요.</p>
     </div>
-  </section>
-
-  <section class="card">
-    <div class="card-title-row">
-      <h2 id="day-list-title">이 날짜의 기록</h2>
-    </div>
-    <p class="swipe-hint">항목을 좌측으로 슬라이드하면 삭제할 수 있습니다.</p>
-    <div id="day-record-list" class="record-list"></div>
   </section>
 </main>
 

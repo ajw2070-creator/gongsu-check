@@ -298,6 +298,7 @@
       refreshInputCompanyChips();
     });
     updateInputTripVisibility();
+    renderInputSummary();
   }
   function refreshEditCompanyChips() {
     renderCompanyChips(document.getElementById("edit-company-chip-row"), editState.companyId, (id) => {
@@ -783,19 +784,20 @@
     document.getElementById("selected-date-heading").textContent = formatDateHeading(calendarState.selectedDate) + suffix;
   }
 
-  function renderInputMonthList() {
-    document.getElementById("day-list-title").textContent = formatMonthLabel(calendarState.ym) + " 기록";
-    const records = loadRecords().filter((r) => r.date.slice(0, 7) === calendarState.ym);
-    renderGroupedRecordList(document.getElementById("day-record-list"), records, {
-      swipeDelete: true,
-      onDelete: (rec) => {
-        if (!confirm("이 공수 기록을 삭제할까요?")) return;
-        saveRecords(loadRecords().filter((x) => x.id !== rec.id));
-        toast("삭제했습니다");
-        renderCalendar();
-        renderInputMonthList();
-      },
-    });
+  // Summary bento row at the top of the input tab: this month's total for whichever
+  // company is currently selected for entry, plus that company's name.
+  function renderInputSummary() {
+    const company = getCompanyById(inputState.companyId);
+    const companyName = company ? company.name : "업체 없음";
+    const records = loadRecords().filter((r) => r.date.slice(0, 7) === currentMonthYm() && r.companyId === inputState.companyId);
+    const sum = records.reduce((s, r) => s + r.gongsu, 0);
+    const hasRateInfo = company && (company.rate || (company.hasTrip && company.tripRate));
+    document.getElementById("input-summary-total-label").textContent = `이번 달 · ${companyName}`;
+    document.getElementById("input-summary-total-value").textContent = formatGongsu(sum);
+    document.getElementById("input-summary-total-sub").textContent = hasRateInfo
+      ? `공수 · ${formatWon(calcRecordsAmount(records))}`
+      : "공수";
+    document.getElementById("input-summary-company-name").textContent = companyName;
   }
 
   function selectDate(dateStr) {
@@ -806,7 +808,6 @@
     renderSelectedDateHeading();
     refreshInputCompanyChips();
     applyDefaultGongsu();
-    renderInputMonthList();
   }
 
   // ---------- day quick-edit modal (double-tap a calendar date) ----------
@@ -842,7 +843,7 @@
         toast("삭제했습니다");
         renderDayModalList();
         renderCalendar();
-        if (dayModalState.date.slice(0, 7) === calendarState.ym) renderInputMonthList();
+        renderInputSummary();
       },
     })));
   }
@@ -1109,7 +1110,6 @@
       renderCalendar();
       renderSelectedDateHeading();
       refreshInputCompanyChips();
-      renderInputMonthList();
     }
     else if (currentView === "month") renderMonth();
     else if (currentView === "stats") renderStats();
@@ -1316,7 +1316,7 @@
       setToggle("input-trip-toggle", false);
       toast(merged ? "기존 기록을 수정했습니다" : "저장했습니다");
       renderCalendar();
-      renderInputMonthList();
+      renderInputSummary();
     });
 
     document.getElementById("month-prev").addEventListener("click", () => { monthState.ym = shiftMonth(monthState.ym, -1); renderMonth(); });
@@ -1382,7 +1382,7 @@
       toast(merged ? "기존 기록을 수정했습니다" : "저장했습니다");
       renderDayModalList();
       renderCalendar();
-      if (dayModalState.date.slice(0, 7) === calendarState.ym) renderInputMonthList();
+      renderInputSummary();
     });
 
     document.getElementById("calendar-delete-cancel-btn").addEventListener("click", () => closeCalendarDeleteModal());
@@ -1396,7 +1396,7 @@
       toast("삭제했습니다");
       closeCalendarDeleteModal();
       renderCalendar();
-      if (date.slice(0, 7) === calendarState.ym) renderInputMonthList();
+      renderInputSummary();
     });
 
     document.getElementById("rate-modal-close-btn").addEventListener("click", () => closeRateModal());
