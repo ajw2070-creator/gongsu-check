@@ -644,6 +644,7 @@
     if (calendarState.filterCompanyId && !idsWithRecords.has(calendarState.filterCompanyId)) {
       calendarState.filterCompanyId = null;
     }
+    renderInputSummary();
 
     const container = document.getElementById("calendar-company-filter");
     container.innerHTML = "";
@@ -664,6 +665,7 @@
       calendarState.filterCompanyId = null;
       renderCalendarCompanyFilter();
       renderCalendar();
+      renderInputSummary();
     });
     container.appendChild(allBtn);
 
@@ -786,20 +788,23 @@
     document.getElementById("selected-date-heading").textContent = formatDateHeading(calendarState.selectedDate) + suffix;
   }
 
-  // Summary bento row at the top of the input tab: this month's total for whichever
-  // company is currently selected for entry, plus that company's name.
+  // Summary bento row at the top of the input tab. The left "총공수" card follows the
+  // calendar company filter (전체 → this month's total across every company; a specific
+  // company → just that company's total) — separate from the right "업체" card, which
+  // always shows whichever company is currently selected for the NEXT entry.
   function renderInputSummary() {
-    const company = getCompanyById(inputState.companyId);
-    const companyName = company ? company.name : "업체 없음";
-    const records = loadRecords().filter((r) => r.date.slice(0, 7) === currentMonthYm() && r.companyId === inputState.companyId);
+    const filterCompanyId = calendarState.filterCompanyId;
+    const filterCompany = filterCompanyId ? getCompanyById(filterCompanyId) : null;
+    const scopeLabel = filterCompany ? filterCompany.name : "전체";
+    const records = loadRecords().filter((r) => r.date.slice(0, 7) === currentMonthYm() && (!filterCompanyId || r.companyId === filterCompanyId));
     const sum = records.reduce((s, r) => s + r.gongsu, 0);
-    const hasRateInfo = company && (company.rate || (company.hasTrip && company.tripRate));
-    document.getElementById("input-summary-total-label").textContent = `이번 달 · ${companyName}`;
+    const amount = calcRecordsAmount(records);
+    document.getElementById("input-summary-total-label").textContent = `이번 달 · ${scopeLabel}`;
     document.getElementById("input-summary-total-value").textContent = formatGongsu(sum);
-    document.getElementById("input-summary-total-sub").textContent = hasRateInfo
-      ? `공수 · ${formatWon(calcRecordsAmount(records))}`
-      : "공수";
-    document.getElementById("input-summary-company-name").textContent = companyName;
+    document.getElementById("input-summary-total-sub").textContent = amount > 0 ? `공수 · ${formatWon(amount)}` : "공수";
+
+    const entryCompany = getCompanyById(inputState.companyId);
+    document.getElementById("input-summary-company-name").textContent = entryCompany ? entryCompany.name : "업체 없음";
   }
 
   function selectDate(dateStr) {
@@ -1119,10 +1124,13 @@
     else if (currentView === "settings") renderSettingsTab();
   }
 
-  function switchView(view) {
+  function switchView(view, slideDir) {
     currentView = view;
-    document.querySelectorAll(".view").forEach((v) => v.classList.remove("active"));
-    document.getElementById("view-" + view).classList.add("active");
+    document.querySelectorAll(".view").forEach((v) => v.classList.remove("active", "slide-in-right", "slide-in-left"));
+    const el = document.getElementById("view-" + view);
+    el.classList.add("active");
+    if (slideDir === 1) el.classList.add("slide-in-right");
+    else if (slideDir === -1) el.classList.add("slide-in-left");
     document.querySelectorAll(".nav-btn").forEach((b) => b.classList.toggle("active", b.dataset.view === view));
     const titles = { input: "공수체크", month: "월별현황", stats: "전체통계", companies: "업체관리", settings: "설정", guide: "기능설명" };
     document.getElementById("header-title").textContent = titles[view];
@@ -1159,7 +1167,7 @@
     const idx = TAB_ORDER.indexOf(currentView);
     if (idx === -1) return;
     const nextIdx = (idx + direction + TAB_ORDER.length) % TAB_ORDER.length;
-    switchView(TAB_ORDER[nextIdx]);
+    switchView(TAB_ORDER[nextIdx], direction);
   }
 
   // ---------- edit modal ----------
@@ -1209,7 +1217,7 @@
       if (openSwipeWrapper && !openSwipeWrapper.contains(e.target)) closeSwipe(openSwipeWrapper);
     });
 
-    const EDGE_ZONE = 24;
+    const EDGE_ZONE = 56;
     let edgeSwipeStart = null;
     document.addEventListener("touchstart", (e) => {
       if (e.touches.length !== 1 || document.querySelector(".modal-overlay.active")) {
@@ -1227,7 +1235,7 @@
       const t = e.changedTouches[0];
       const dx = t.clientX - edgeSwipeStart.x;
       const dy = t.clientY - edgeSwipeStart.y;
-      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.2) {
         if (edgeSwipeStart.edge === "right" && dx < 0) switchToAdjacentTab(1);
         else if (edgeSwipeStart.edge === "left" && dx > 0) switchToAdjacentTab(-1);
       }

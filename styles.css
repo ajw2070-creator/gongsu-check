@@ -164,6 +164,18 @@ html, body {
 
 .view.active { display: block; }
 
+.view.slide-in-right { animation: view-slide-in-right 0.22s ease-out; }
+.view.slide-in-left { animation: view-slide-in-left 0.22s ease-out; }
+
+@keyframes view-slide-in-right {
+  from { transform: translateX(28px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+@keyframes view-slide-in-left {
+  from { transform: translateX(-28px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
 .card {
   background: var(--card-bg);
   border-radius: var(--radius);
