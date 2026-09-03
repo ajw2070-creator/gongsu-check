@@ -676,8 +676,10 @@
       if (selected) btn.style.background = c.color;
       btn.addEventListener("click", () => {
         calendarState.filterCompanyId = c.id;
+        inputState.companyId = c.id;
         renderCalendarCompanyFilter();
         renderCalendar();
+        refreshInputCompanyChips();
       });
       container.appendChild(btn);
     });

@@ -10,6 +10,10 @@
   --border: #332f28;
   --accent: #bdd0ec;
   --accent-dim: #e4ecf8;
+  --accent-ink: #332f28;
+  --emphasis-bg: #332f28;
+  --emphasis-text: #f5f1e6;
+  --emphasis-label: #b8b0a0;
   --danger: #c9503a;
   --danger-dim: #f3ddd3;
   --overlay-bg: rgba(51, 47, 40, 0.55);
@@ -18,22 +22,31 @@
   --nav-height: 64px;
 }
 
+/* Dark theme intentionally does NOT invert the neubrutalist "ink block" pattern (light
+   theme's dark cards would otherwise flip to glaring near-white blocks): --emphasis-bg
+   stays dark in both themes, --border/--shadow-color are muted here rather than
+   near-white, and --accent-ink stays a fixed dark tone for text sitting on the (always
+   pastel) accent color. This keeps things easy on the eyes instead of just inverting. */
 :root[data-theme="dark"] {
-  --bg: #211e18;
-  --card-bg: #2b2720;
-  --surface-bg: #322e26;
-  --nav-bg: #17150f;
-  --modal-bg: #2b2720;
-  --text: #f0ece0;
-  --text-dim: #b8b0a0;
-  --muted: #8a8272;
-  --border: #ded6c4;
+  --bg: #1c1a15;
+  --card-bg: #262319;
+  --surface-bg: #2d2a1f;
+  --nav-bg: #141210;
+  --modal-bg: #262319;
+  --text: #ece6d6;
+  --text-dim: #a89f8c;
+  --muted: #7d7566;
+  --border: #4a4436;
   --accent: #bdd0ec;
-  --accent-dim: #3a4356;
+  --accent-dim: #2d3648;
+  --accent-ink: #332f28;
+  --emphasis-bg: #322c22;
+  --emphasis-text: #ece6d6;
+  --emphasis-label: #9c9484;
   --danger: #e8836a;
-  --danger-dim: #4a2e22;
-  --overlay-bg: rgba(0, 0, 0, 0.65);
-  --shadow-color: #ded6c4;
+  --danger-dim: #3d2620;
+  --overlay-bg: rgba(0, 0, 0, 0.7);
+  --shadow-color: #100f0c;
 }
 
 * { box-sizing: border-box; }
@@ -90,7 +103,7 @@ html, body {
 .menu-btn {
   flex-shrink: 0;
   border: 2px solid var(--border);
-  background: var(--text);
+  background: var(--emphasis-bg);
   color: var(--accent);
   font-size: 20px;
   line-height: 1;
@@ -139,7 +152,7 @@ html, body {
   cursor: pointer;
   text-align: left;
 }
-.side-menu-item:active { background: var(--accent); border-color: var(--border); }
+.side-menu-item:active { background: var(--accent); border-color: var(--border); color: var(--accent-ink); }
 .side-menu-icon { width: 19px; height: 19px; flex-shrink: 0; }
 
 .view {
@@ -223,7 +236,7 @@ input:focus { outline: 2.5px solid var(--accent); outline-offset: -2px; }
   font-family: 'Unbounded', 'Sora', sans-serif;
 }
 
-.step-btn:active { background: var(--accent); }
+.step-btn:active { background: var(--accent); color: var(--accent-ink); }
 
 .preset-row {
   display: flex;
@@ -247,7 +260,7 @@ input:focus { outline: 2.5px solid var(--accent); outline-offset: -2px; }
 .preset-chip.selected {
   background: var(--accent);
   border-color: var(--border);
-  color: var(--text);
+  color: var(--accent-ink);
 }
 
 .chip-row {
@@ -285,7 +298,7 @@ input:focus { outline: 2.5px solid var(--accent); outline-offset: -2px; }
   border: 2.5px solid var(--border);
   border-radius: 8px;
   background: var(--accent);
-  color: var(--text);
+  color: var(--accent-ink);
   font-size: 15px;
   font-weight: 800;
   cursor: pointer;
@@ -409,7 +422,7 @@ input:focus { outline: 2.5px solid var(--accent); outline-offset: -2px; }
   border-radius: 4px;
   border: 1.5px solid var(--border);
   background: var(--accent);
-  color: var(--text);
+  color: var(--accent-ink);
   font-size: 10.5px;
   font-weight: 800;
   vertical-align: middle;
@@ -480,7 +493,7 @@ input:focus { outline: 2.5px solid var(--accent); outline-offset: -2px; }
 .calendar-cell.selected .cell-day-num,
 .calendar-cell.selected.sunday .cell-day-num,
 .calendar-cell.selected.saturday .cell-day-num,
-.calendar-cell.selected.holiday .cell-day-num { color: var(--text); }
+.calendar-cell.selected.holiday .cell-day-num { color: var(--accent-ink); }
 
 .cell-holiday-label {
   font-size: 7.5px;
@@ -491,20 +504,20 @@ input:focus { outline: 2.5px solid var(--accent); outline-offset: -2px; }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.calendar-cell.selected .cell-holiday-label { color: var(--text-dim); }
+.calendar-cell.selected .cell-holiday-label { color: var(--accent-ink); }
 
 .cell-gongsu-badge {
   margin-top: 1px;
   font-size: 9.5px;
   font-weight: 800;
   color: var(--accent);
-  background: var(--text);
+  background: var(--emphasis-bg);
   border-radius: 4px;
   padding: 1px 5px;
   line-height: 1.4;
   font-family: 'Unbounded', 'Sora', sans-serif;
 }
-.calendar-cell.selected .cell-gongsu-badge { background: var(--text); color: var(--accent); }
+.calendar-cell.selected .cell-gongsu-badge { background: var(--emphasis-bg); color: var(--accent); }
 
 .selected-date-heading {
   font-size: 14px;
@@ -522,8 +535,8 @@ input:focus { outline: 2.5px solid var(--accent); outline-offset: -2px; }
 }
 
 .input-summary-total {
-  background: var(--text);
-  border: 2.5px solid var(--border);
+  background: var(--emphasis-bg);
+  border: 2.5px solid var(--accent);
   box-shadow: 4px 4px 0 var(--shadow-color);
   border-radius: var(--radius);
   padding: 14px;
@@ -534,7 +547,7 @@ input:focus { outline: 2.5px solid var(--accent); outline-offset: -2px; }
 .input-summary-total-label {
   font-size: 10.5px;
   font-weight: 700;
-  color: var(--muted);
+  color: var(--emphasis-label);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -552,7 +565,7 @@ input:focus { outline: 2.5px solid var(--accent); outline-offset: -2px; }
 .input-summary-total-sub {
   font-size: 11.5px;
   font-weight: 700;
-  color: var(--bg);
+  color: var(--emphasis-text);
   margin-top: 2px;
 }
 
@@ -594,13 +607,13 @@ input:focus { outline: 2.5px solid var(--accent); outline-offset: -2px; }
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  background: var(--text);
-  border: 2.5px solid var(--border);
+  background: var(--emphasis-bg);
+  border: 2.5px solid var(--accent);
   box-shadow: 4px 4px 0 var(--shadow-color);
   border-radius: var(--radius);
   padding: 16px;
 }
-.total-label { font-size: 10.5px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+.total-label { font-size: 10.5px; color: var(--emphasis-label); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
 .total-value-group { display: flex; align-items: baseline; gap: 10px; }
 .total-value { font-size: 26px; color: var(--accent); font-weight: 800; white-space: nowrap; font-family: 'Unbounded', 'Sora', sans-serif; }
 .total-amount-btn {
@@ -615,7 +628,7 @@ input:focus { outline: 2.5px solid var(--accent); outline-offset: -2px; }
   cursor: pointer;
   white-space: nowrap;
 }
-.total-amount-btn.active { background: var(--accent); color: var(--text); }
+.total-amount-btn.active { background: var(--accent); color: var(--accent-ink); }
 
 .summary-list { display: flex; flex-direction: column; gap: 8px; }
 .summary-empty { color: var(--muted); font-size: 14px; text-align: center; padding: 12px 0; }
@@ -648,7 +661,7 @@ input:focus { outline: 2.5px solid var(--accent); outline-offset: -2px; }
   cursor: pointer;
   white-space: nowrap;
 }
-.summary-amount-btn.active { background: var(--accent); color: var(--text); border-color: var(--border); }
+.summary-amount-btn.active { background: var(--accent); color: var(--accent-ink); border-color: var(--border); }
 
 .manage-list { display: flex; flex-direction: column; gap: 10px; }
 .manage-item {
@@ -837,6 +850,7 @@ input:focus { outline: 2.5px solid var(--accent); outline-offset: -2px; }
 }
 .theme-option.selected { background: var(--accent); box-shadow: 3px 3px 0 var(--shadow-color); }
 .theme-option span:last-child { font-size: 13px; font-weight: 700; color: var(--text); }
+.theme-option.selected span:last-child { color: var(--accent-ink); }
 
 .theme-swatch {
   width: 100%;
@@ -871,7 +885,7 @@ input:focus { outline: 2.5px solid var(--accent); outline-offset: -2px; }
   left: 50%;
   bottom: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px) + 16px);
   transform: translateX(-50%) translateY(20px);
-  background: var(--text);
+  background: var(--emphasis-bg);
   color: var(--accent);
   padding: 10px 18px;
   border: 2px solid var(--border);
