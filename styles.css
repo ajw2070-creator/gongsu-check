@@ -616,17 +616,18 @@ input:focus { outline: 2.5px solid var(--accent); outline-offset: -2px; }
 
 .total-highlight {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
+  gap: 10px;
   background: var(--emphasis-bg);
   border: 2.5px solid var(--accent);
   box-shadow: 4px 4px 0 var(--shadow-color);
   border-radius: var(--radius);
   padding: 16px;
 }
-.total-label { font-size: 10.5px; color: var(--emphasis-label); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
-.total-value-group { display: flex; align-items: baseline; gap: 10px; }
-.total-value { font-size: 26px; color: var(--accent); font-weight: 800; white-space: nowrap; font-family: 'Unbounded', 'Sora', sans-serif; }
+.total-highlight-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.total-label { font-size: 10.5px; color: var(--emphasis-label); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
+.total-value { font-size: 26px; color: var(--accent); font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: 'Unbounded', 'Sora', sans-serif; }
 .total-amount-btn {
   flex-shrink: 0;
   padding: 6px 11px;
