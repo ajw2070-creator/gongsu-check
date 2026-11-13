@@ -797,10 +797,10 @@
     const filterCompanyId = calendarState.filterCompanyId;
     const filterCompany = filterCompanyId ? getCompanyById(filterCompanyId) : null;
     const scopeLabel = filterCompany ? filterCompany.name : "전체";
-    const records = loadRecords().filter((r) => r.date.slice(0, 7) === currentMonthYm() && (!filterCompanyId || r.companyId === filterCompanyId));
+    const records = loadRecords().filter((r) => r.date.slice(0, 7) === calendarState.ym && (!filterCompanyId || r.companyId === filterCompanyId));
     const sum = records.reduce((s, r) => s + r.gongsu, 0);
 
-    document.getElementById("input-summary-total-label").textContent = `이번 달 · ${scopeLabel}`;
+    document.getElementById("input-summary-total-label").textContent = `${calendarState.ym === currentMonthYm() ? "이번 달" : Number(calendarState.ym.slice(5, 7)) + "월"} · ${scopeLabel}`;
     document.getElementById("input-summary-total-value").textContent = inputSummaryAmountView
       ? formatWon(calcRecordsAmount(records))
       : formatGongsuUnit(sum);
@@ -1311,6 +1311,27 @@
     wireToggle("input-trip-toggle");
     wireToggle("day-modal-trip-toggle");
     wireToggle("edit-trip-toggle");
+
+    // Keep the "today" marker correct when the app stays open past midnight.
+    let lastSeenDay = todayStr();
+    function checkDayChange() {
+      const now = todayStr();
+      if (now === lastSeenDay) return;
+      // If the user was sitting on the old "today", follow it to the new one.
+      if (calendarState.selectedDate === lastSeenDay) {
+        if (calendarState.ym === lastSeenDay.slice(0, 7)) calendarState.ym = now.slice(0, 7);
+        calendarState.selectedDate = now;
+        inputState.companyId = getSuggestedCompanyForDate(now);
+        refreshInputCompanyChips();
+        applyDefaultGongsu();
+      }
+      lastSeenDay = now;
+      renderCalendar();
+      renderSelectedDateHeading();
+    }
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) checkDayChange(); });
+    window.addEventListener("focus", checkDayChange);
+    setInterval(checkDayChange, 60000);
 
     document.getElementById("cal-prev").addEventListener("click", () => { calendarState.ym = shiftMonth(calendarState.ym, -1); renderCalendar(); });
     document.getElementById("cal-next").addEventListener("click", () => { calendarState.ym = shiftMonth(calendarState.ym, 1); renderCalendar(); });

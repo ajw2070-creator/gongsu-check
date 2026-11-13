@@ -500,7 +500,16 @@ input:focus { outline: 2.5px solid var(--accent); outline-offset: -2px; }
 .calendar-cell.holiday .cell-day-num { color: var(--danger); }
 .calendar-cell.saturday .cell-day-num { color: var(--text); }
 
-.calendar-cell.today { border-color: var(--text-dim); border-width: 2.5px; }
+.calendar-cell.today { box-shadow: 2px 2px 0 var(--shadow-color); }
+.calendar-cell.today .cell-day-num,
+.calendar-cell.today.sunday .cell-day-num,
+.calendar-cell.today.holiday .cell-day-num {
+  min-width: 20px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--text);
+  color: var(--bg, #fff);
+}
 .calendar-cell.selected { background: var(--accent); border-color: var(--border); }
 .calendar-cell.selected .cell-day-num,
 .calendar-cell.selected.sunday .cell-day-num,
@@ -517,6 +526,10 @@ input:focus { outline: 2.5px solid var(--accent); outline-offset: -2px; }
   white-space: nowrap;
 }
 .calendar-cell.selected .cell-holiday-label { color: var(--accent-ink); }
+.calendar-cell.selected.today .cell-day-num,
+.calendar-cell.selected.today.sunday .cell-day-num,
+.calendar-cell.selected.today.saturday .cell-day-num,
+.calendar-cell.selected.today.holiday .cell-day-num { background: var(--accent-ink); color: var(--accent); }
 
 .cell-gongsu-badge {
   margin-top: 1px;
